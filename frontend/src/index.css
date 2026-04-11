@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-accent: hsl(var(--accent));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+}
+
+:root {
+  --background: 48 25% 97%;
+  --foreground: 222 47% 11%;
+  --border: 28 18% 84%;
+  --accent: 24 60% 92%;
+  --muted: 40 30% 93%;
+  --muted-foreground: 220 12% 38%;
+}
+
+.dark {
+  --background: 210 20% 10%;
+  --foreground: 40 33% 96%;
+  --border: 210 14% 22%;
+  --accent: 18 55% 30%;
+  --muted: 210 16% 16%;
+  --muted-foreground: 40 18% 72%;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at top, color-mix(in oklab, hsl(var(--accent)) 45%, transparent), transparent 35%),
+    linear-gradient(180deg, color-mix(in oklab, hsl(var(--background)) 96%, white) 0%, hsl(var(--background)) 100%);
+  color: hsl(var(--foreground));
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
