@@ -14,19 +14,23 @@ import { CSS } from '@dnd-kit/utilities'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronDown,
+  ChevronsUp,
   FolderPlus,
   GripVertical,
+  Menu,
   Moon,
   Plus,
   Search,
   Sun,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { api } from '../../api/client'
+import { getTopicTree, reorderTopics } from '../../lib/db'
 import { useUIStore } from '../../store/uiStore'
 import type { Topic } from '../../types'
+import { TopicIcon } from '../../utils/topicIcons'
 import { cn } from '../../utils/cn'
 import {
   getSiblingTopics,
@@ -50,14 +54,12 @@ export function Sidebar() {
   const { theme, toggleTheme, openSearch } = useUIStore()
   const location = useLocation()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [dialogParentId, setDialogParentId] = useState<string | undefined>()
   const [dialogOpen, setDialogOpen] = useState(false)
   const { data: tree = [], isLoading } = useQuery<TreeTopic[]>({
     queryKey: ['topics', 'tree'],
-    queryFn: async () => {
-      const response = await api.get('/topics/tree/')
-      return response.data
-    },
+    queryFn: async () => (await getTopicTree()) as TreeTopic[],
     staleTime: 60_000,
   })
 
@@ -71,35 +73,51 @@ export function Sidebar() {
       return
     }
 
-    const initialExpandedIds = new Set<string>()
-
-    const collectExpandedIds = (nodes: TreeTopic[], ancestorIds: string[] = []) => {
-      for (const node of nodes) {
-        if (node.children?.length) {
-          initialExpandedIds.add(node.id)
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      
+      const expandActiveRoute = (nodes: TreeTopic[], ancestorIds: string[] = []) => {
+        for (const node of nodes) {
+          if (topicIdFromRoute && node.id === topicIdFromRoute) {
+            ancestorIds.forEach((id) => next.add(id))
+            if (node.children?.length) {
+              next.add(node.id)
+            }
+          }
+          expandActiveRoute(node.children ?? [], [...ancestorIds, node.id])
         }
-
-        if (topicIdFromRoute && node.id === topicIdFromRoute) {
-          ancestorIds.forEach((id) => initialExpandedIds.add(id))
-        }
-
-        collectExpandedIds(node.children ?? [], [...ancestorIds, node.id])
       }
-    }
 
-    collectExpandedIds(tree)
-    setExpandedIds(initialExpandedIds)
+      expandActiveRoute(tree)
+      return next
+    })
   }, [topicIdFromRoute, tree])
 
-  const reorderTopics = useMutation<unknown, Error, ReorderTopicsVariables, ReorderTopicsContext>({
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = mobileOpen ? 'hidden' : originalOverflow
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [mobileOpen])
+
+  const reorderTopicsMutation = useMutation<
+    unknown,
+    Error,
+    ReorderTopicsVariables,
+    ReorderTopicsContext
+  >({
     mutationFn: async ({ parentId, orderedIds }) => {
-      const response = await api.patch(`/topics/${parentId ?? 'root'}/reorder/`, {
-        children: orderedIds.map((id, index) => ({
-          id,
-          sort_order: index,
-        })),
-      })
-      return response.data
+      await reorderTopics(parentId, orderedIds)
     },
     onMutate: async ({ parentId, orderedIds }) => {
       await queryClient.cancelQueries({ queryKey: ['topics', 'tree'] })
@@ -158,6 +176,12 @@ export function Sidebar() {
   const openDialog = (parentId?: string) => {
     setDialogParentId(parentId)
     setDialogOpen(true)
+    setMobileOpen(false)
+  }
+
+  const handleOpenSearch = () => {
+    openSearch()
+    setMobileOpen(false)
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -183,7 +207,7 @@ export function Sidebar() {
     }
 
     const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex)
-    reorderTopics.mutate({
+    reorderTopicsMutation.mutate({
       parentId: activeParentId,
       orderedIds: reorderedSiblings.map((node) => node.id),
     })
@@ -191,63 +215,89 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border/70 bg-muted/50 backdrop-blur">
-        <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Knowledge</p>
-            <h1 className="mt-2 text-2xl font-semibold">KnowBase</h1>
+      <div className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/90 backdrop-blur md:hidden">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <button
+            aria-label="Open sidebar"
+            className="rounded-2xl border border-border/70 bg-background p-2.5 transition hover:bg-accent"
+            onClick={() => setMobileOpen(true)}
+            type="button"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Knowledge</p>
+            <h1 className="truncate text-lg font-semibold">KnowBase</h1>
           </div>
-          <button
-            className="rounded-full border border-border/70 bg-background p-2 transition hover:bg-accent"
-            onClick={toggleTheme}
-            type="button"
-          >
-            {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-          </button>
-        </div>
 
-        <div className="px-4 py-4">
-          <button
-            className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-background px-3 py-2 text-sm transition hover:bg-accent"
-            onClick={openSearch}
-            type="button"
-          >
-            <Search className="h-4 w-4" />
-            <span className="flex-1 text-left">Search</span>
-            <span className="rounded-md border border-border/70 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-              K
-            </span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              aria-label="Search"
+              className="rounded-2xl border border-border/70 bg-background p-2.5 transition hover:bg-accent"
+              onClick={handleOpenSearch}
+              type="button"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button
+              aria-label="Toggle theme"
+              className="rounded-2xl border border-border/70 bg-background p-2.5 transition hover:bg-accent"
+              onClick={toggleTheme}
+              type="button"
+            >
+              {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-4">
-          {isLoading ? (
-            <SidebarSkeleton />
-          ) : (
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <TreeLevel
-                depth={0}
-                expandedIds={expandedIds}
-                nodes={tree}
-                onAddChild={(parentId) => openDialog(parentId)}
-                onToggle={toggle}
-                parentId={null}
-              />
-            </DndContext>
-          )}
-        </div>
-
-        <div className="border-t border-border/70 px-4 py-4">
-          <button
-            className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-border bg-background px-3 py-2 text-sm transition hover:bg-accent"
-            onClick={() => openDialog()}
-            type="button"
-          >
-            <FolderPlus className="h-4 w-4" />
-            <span>Add Topic</span>
-          </button>
-        </div>
+      <aside className="hidden h-screen w-72 shrink-0 border-r border-border/70 bg-muted/50 backdrop-blur md:flex md:flex-col">
+        <SidebarContent
+          expandedIds={expandedIds}
+          handleDragEnd={handleDragEnd}
+          isLoading={isLoading}
+          onAddChild={openDialog}
+          onToggle={toggle}
+          onCollapseAll={() => setExpandedIds(new Set())}
+          tree={tree}
+        />
       </aside>
+
+      <AnimatePresence>
+        {mobileOpen ? (
+          <>
+            <motion.button
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 z-40 bg-black/45 md:hidden"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              type="button"
+            />
+            <motion.aside
+              animate={{ x: 0 }}
+              className="fixed inset-y-0 left-0 z-50 flex w-[min(88vw,21rem)] flex-col border-r border-border/70 bg-background shadow-2xl md:hidden"
+              exit={{ x: '-100%' }}
+              initial={{ x: '-100%' }}
+              transition={{ duration: 0.2 }}
+            >
+              <SidebarContent
+                expandedIds={expandedIds}
+                handleDragEnd={handleDragEnd}
+                isLoading={isLoading}
+                mobile
+                onAddChild={openDialog}
+                onCloseMobile={() => setMobileOpen(false)}
+                onNavigate={() => setMobileOpen(false)}
+                onToggle={toggle}
+                onCollapseAll={() => setExpandedIds(new Set())}
+                tree={tree}
+              />
+            </motion.aside>
+          </>
+        ) : null}
+      </AnimatePresence>
 
       <AddTopicDialog
         onClose={() => {
@@ -261,6 +311,94 @@ export function Sidebar() {
   )
 }
 
+type SidebarContentProps = {
+  tree: TreeTopic[]
+  isLoading: boolean
+  expandedIds: Set<string>
+  onToggle: (id: string) => void
+  onAddChild: (parentId?: string) => void
+  onCollapseAll: () => void
+  handleDragEnd: (event: DragEndEvent) => void
+  mobile?: boolean
+  onCloseMobile?: () => void
+  onNavigate?: () => void
+}
+
+function SidebarContent({
+  tree,
+  isLoading,
+  expandedIds,
+  onToggle,
+  onAddChild,
+  onCollapseAll,
+  handleDragEnd,
+  mobile = false,
+  onCloseMobile,
+  onNavigate,
+}: SidebarContentProps) {
+  return (
+    <>
+      <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Knowledge</p>
+          <h1 className="mt-2 text-2xl font-semibold">KnowBase</h1>
+        </div>
+        {mobile ? (
+          <button
+            aria-label="Close sidebar"
+            className="rounded-full border border-border/70 bg-background p-2 transition hover:bg-accent"
+            onClick={onCloseMobile}
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="border-b border-border/70 px-4 py-4">
+        <div className="flex gap-2">
+          <button
+            className="flex flex-1 items-center gap-3 rounded-2xl border border-dashed border-border bg-background px-3 py-2 text-sm transition hover:bg-accent"
+            onClick={() => onAddChild()}
+            type="button"
+          >
+            <FolderPlus className="h-4 w-4" />
+            <span className="flex-1 text-left font-medium">Add Topic</span>
+          </button>
+          <button
+            aria-label="Collapse all folders"
+            title="Collapse All"
+            className="rounded-2xl border border-border/70 bg-background px-3 py-2 transition hover:bg-accent flex items-center justify-center shrink-0"
+            onClick={onCollapseAll}
+            type="button"
+          >
+            <ChevronsUp className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2 py-4">
+        {isLoading ? (
+          <SidebarSkeleton />
+        ) : (
+          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <TreeLevel
+              depth={0}
+              expandedIds={expandedIds}
+              nodes={tree}
+              onAddChild={onAddChild}
+              onNavigate={onNavigate}
+              onToggle={onToggle}
+              parentId={null}
+            />
+          </DndContext>
+        )}
+      </div>
+
+    </>
+  )
+}
+
 type TreeLevelProps = {
   nodes: TreeTopic[]
   parentId: string | null
@@ -268,9 +406,10 @@ type TreeLevelProps = {
   expandedIds: Set<string>
   onToggle: (id: string) => void
   onAddChild: (parentId: string) => void
+  onNavigate?: () => void
 }
 
-function TreeLevel({ nodes, parentId, depth, expandedIds, onToggle, onAddChild }: TreeLevelProps) {
+function TreeLevel({ nodes, parentId, depth, expandedIds, onToggle, onAddChild, onNavigate }: TreeLevelProps) {
   return (
     <SortableContext items={nodes.map((node) => node.id)} strategy={verticalListSortingStrategy}>
       {nodes.map((node) => (
@@ -280,6 +419,7 @@ function TreeLevel({ nodes, parentId, depth, expandedIds, onToggle, onAddChild }
           expandedIds={expandedIds}
           node={node}
           onAddChild={onAddChild}
+          onNavigate={onNavigate}
           onToggle={onToggle}
           parentId={parentId}
         />
@@ -295,9 +435,10 @@ type TreeNodeProps = {
   expandedIds: Set<string>
   onToggle: (id: string) => void
   onAddChild: (parentId: string) => void
+  onNavigate?: () => void
 }
 
-function TreeNode({ node, parentId, depth, expandedIds, onToggle, onAddChild }: TreeNodeProps) {
+function TreeNode({ node, parentId, depth, expandedIds, onToggle, onAddChild, onNavigate }: TreeNodeProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const hasChildren = Boolean(node.children?.length)
@@ -321,11 +462,14 @@ function TreeNode({ node, parentId, depth, expandedIds, onToggle, onAddChild }: 
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
       <div
         className={cn(
-          'group mx-1 flex items-center gap-1 rounded-xl py-1.5 pr-2 text-sm transition',
+          'group mx-1 flex cursor-pointer items-center gap-2 rounded-xl py-2 pr-2 text-sm transition',
           isActive ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
           isDragging && 'opacity-70 shadow-sm',
         )}
-        onClick={() => navigate(`/topic/${node.id}`)}
+        onClick={() => {
+          navigate(`/topic/${node.id}`)
+          onNavigate?.()
+        }}
         style={{ paddingLeft }}
       >
         <button
@@ -348,8 +492,13 @@ function TreeNode({ node, parentId, depth, expandedIds, onToggle, onAddChild }: 
           </motion.span>
         </button>
 
-        <span className="text-sm">{node.icon}</span>
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">{node.name}</span>
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/80"
+          style={{ backgroundColor: node.color ? `${node.color}1f` : undefined }}
+        >
+          <TopicIcon className="h-4 w-4" icon={node.icon} />
+        </div>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{node.name}</span>
 
         <button
           className={cn(
@@ -397,6 +546,7 @@ function TreeNode({ node, parentId, depth, expandedIds, onToggle, onAddChild }: 
               expandedIds={expandedIds}
               nodes={node.children ?? []}
               onAddChild={onAddChild}
+              onNavigate={onNavigate}
               onToggle={onToggle}
               parentId={node.id}
             />

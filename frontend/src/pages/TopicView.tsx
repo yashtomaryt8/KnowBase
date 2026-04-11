@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FolderPlus, FilePlus2, Pin, Sparkles } from 'lucide-react'
+import { FolderPlus, FilePlus2, Pin, Sparkles, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { api } from '../api/client'
 import { AddTopicDialog } from '../components/dialogs/AddTopicDialog'
+import { createPage, getPagesByTopic, getTopic, deleteTopic } from '../lib/db'
 import type { Page, Topic, TopicSummary } from '../types'
+import { TopicIcon } from '../utils/topicIcons'
 
 export function TopicView() {
   const { topicId } = useParams<{ topicId: string }>()
@@ -17,22 +18,28 @@ export function TopicView() {
   const [pageDialogOpen, setPageDialogOpen] = useState(false)
   const [subtopicDialogOpen, setSubtopicDialogOpen] = useState(false)
 
+  const deleteTopicMutation = useMutation({
+    mutationFn: () => deleteTopic(topicId!),
+    onSuccess: () => {
+      toast.success('Topic deleted')
+      void queryClient.invalidateQueries({ queryKey: ['topics', 'tree'] })
+      navigate('/')
+    },
+    onError: () => {
+      toast.error('Could not delete topic')
+    },
+  })
+
   const { data: topic, isLoading: topicLoading } = useQuery<Topic>({
     enabled: Boolean(topicId),
     queryKey: ['topics', topicId],
-    queryFn: async () => {
-      const response = await api.get(`/topics/${topicId}/`)
-      return response.data
-    },
+    queryFn: () => getTopic(topicId!),
   })
 
   const { data: pages = [], isLoading: pagesLoading } = useQuery<Page[]>({
     enabled: Boolean(topicId),
     queryKey: ['pages', 'topic', topicId],
-    queryFn: async () => {
-      const response = await api.get(`/pages/?topic=${topicId}`)
-      return response.data
-    },
+    queryFn: () => getPagesByTopic(topicId!),
   })
 
   const orderedPages = useMemo(
@@ -42,9 +49,7 @@ export function TopicView() {
           return left.is_pinned ? -1 : 1
         }
 
-        return (
-          new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
-        )
+        return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
       }),
     [pages],
   )
@@ -59,7 +64,7 @@ export function TopicView() {
 
   if (!topic) {
     return (
-      <section className="mx-auto max-w-4xl px-6 py-8">
+      <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="rounded-[2rem] border border-border/70 bg-background/80 p-10 text-center shadow-sm">
           <h2 className="text-2xl font-semibold">Topic not found</h2>
         </div>
@@ -72,10 +77,10 @@ export function TopicView() {
 
   return (
     <>
-      <section className="mx-auto max-w-4xl px-6 py-8">
+      <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <button
-            className="transition hover:text-foreground"
+            className="cursor-pointer transition hover:text-foreground"
             onClick={() => navigate('/')}
             type="button"
           >
@@ -85,7 +90,7 @@ export function TopicView() {
             <>
               <span>&gt;</span>
               <button
-                className="transition hover:text-foreground"
+                className="cursor-pointer transition hover:text-foreground"
                 onClick={() => navigate(`/topic/${topic.parent_topic?.id}`)}
                 type="button"
               >
@@ -97,18 +102,18 @@ export function TopicView() {
           <span className="text-foreground">{topic.name}</span>
         </div>
 
-        <div className="mt-6 flex flex-col gap-6 rounded-[2rem] border border-border/70 bg-background/80 p-8 shadow-sm md:flex-row md:items-start md:justify-between">
-          <div className="flex gap-5">
+        <div className="mt-6 flex flex-col gap-6 rounded-[2rem] border border-border/70 bg-background/80 p-5 shadow-sm sm:p-8 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-5">
             <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.75rem] border border-border/70 text-5xl shadow-sm"
+              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.75rem] border border-border/70 shadow-sm"
               style={{ backgroundColor: `${topic.color || '#EAD9CC'}20` }}
             >
-              {topic.icon}
+              <TopicIcon className="h-10 w-10" icon={topic.icon} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">{topic.name}</h1>
+              <h1 className="text-3xl font-bold sm:text-4xl">{topic.name}</h1>
               {topic.description ? (
-                <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
+                <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
                   {topic.description}
                 </p>
               ) : null}
@@ -116,6 +121,19 @@ export function TopicView() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              className="flex items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-500 transition hover:bg-red-500 hover:text-white"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this topic and all its contents?')) {
+                  deleteTopicMutation.mutate()
+                }
+              }}
+              type="button"
+              disabled={deleteTopicMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
             <button
               className="flex items-center gap-2 rounded-2xl bg-foreground px-4 py-2 text-sm text-background transition hover:opacity-90"
               onClick={() => setPageDialogOpen(true)}
@@ -141,17 +159,19 @@ export function TopicView() {
               <h2 className="text-xl font-semibold">Subtopics</h2>
               <span className="text-sm text-muted-foreground">{subtopics.length} items</span>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               {subtopics.map((child) => (
                 <button
                   key={child.id}
-                  className="flex items-center justify-between rounded-[1.5rem] border border-border/70 bg-background/80 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:bg-accent"
+                  className="flex cursor-pointer items-center justify-between rounded-[1.5rem] border border-border/70 bg-background/80 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:bg-accent"
                   onClick={() => navigate(`/topic/${child.id}`)}
                   type="button"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{child.icon}</span>
-                    <span className="font-medium">{child.name}</span>
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent">
+                      <TopicIcon className="h-5 w-5" icon={child.icon} />
+                    </span>
+                    <span className="font-medium sm:text-base">{child.name}</span>
                   </div>
                   <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                     {child.page_count ?? 0} pages
@@ -172,7 +192,7 @@ export function TopicView() {
               {orderedPages.map((page) => (
                 <button
                   key={page.id}
-                  className="flex w-full items-center justify-between gap-4 rounded-[1.5rem] border border-border/70 bg-background/80 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:bg-accent"
+                  className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-[1.5rem] border border-border/70 bg-background/80 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:bg-accent"
                   onClick={() => navigate(`/page/${page.id}`)}
                   type="button"
                 >
@@ -247,13 +267,12 @@ type NewPageDialogProps = {
 function NewPageDialog({ open, topicId, onClose, onCreated }: NewPageDialogProps) {
   const [title, setTitle] = useState('')
 
-  const createPage = useMutation({
+  const createPageMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/pages/', {
+      return createPage({
         topic_id: topicId,
         title: title.trim(),
       })
-      return response.data as Page
     },
     onSuccess: (page) => {
       toast.success('Page created')
@@ -275,7 +294,7 @@ function NewPageDialog({ open, topicId, onClose, onCreated }: NewPageDialogProps
       toast.error('Page title is required')
       return
     }
-    createPage.mutate()
+    createPageMutation.mutate()
   }
 
   return createPortal(
@@ -284,7 +303,7 @@ function NewPageDialog({ open, topicId, onClose, onCreated }: NewPageDialogProps
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-[2rem] border border-border/70 bg-background p-6 shadow-2xl"
+        className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[2rem] border border-border/70 bg-background p-5 shadow-2xl sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Pages</p>
@@ -315,10 +334,10 @@ function NewPageDialog({ open, topicId, onClose, onCreated }: NewPageDialogProps
             </button>
             <button
               className="rounded-2xl bg-foreground px-4 py-2 text-sm text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={createPage.isPending}
+              disabled={createPageMutation.isPending}
               type="submit"
             >
-              {createPage.isPending ? 'Creating...' : 'Create page'}
+              {createPageMutation.isPending ? 'Creating...' : 'Create page'}
             </button>
           </div>
         </form>
@@ -330,7 +349,7 @@ function NewPageDialog({ open, topicId, onClose, onCreated }: NewPageDialogProps
 
 function TopicViewSkeleton() {
   return (
-    <section className="mx-auto max-w-4xl px-6 py-8">
+    <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="h-5 w-56 animate-pulse rounded bg-muted" />
       <div className="mt-6 h-52 animate-pulse rounded-[2rem] bg-background/70" />
       <div className="mt-8 grid gap-4 md:grid-cols-2">

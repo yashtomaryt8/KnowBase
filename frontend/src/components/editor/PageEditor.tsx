@@ -29,6 +29,7 @@ import {
   List,
   ListOrdered,
   Quote,
+  Trash2,
   Underline as UnderlineIcon,
 } from 'lucide-react'
 import { common, createLowlight } from 'lowlight'
@@ -36,7 +37,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, ComponentType } from 'react'
 import { createPortal } from 'react-dom'
 
-import { api } from '../../api/client'
+import { exportPageAsDocx, exportPageAsPdf } from '../../lib/exportPage'
 import { usePageShortcutStore } from '../../store/pageShortcutStore'
 import type { Page } from '../../types'
 import { cn } from '../../utils/cn'
@@ -53,9 +54,11 @@ type SavePayload = {
 type PageEditorProps = {
   page: Page
   onSave: (data: SavePayload) => Promise<void>
+  onDelete?: () => void
+  isDeleting?: boolean
 }
 
-export function PageEditor({ page, onSave }: PageEditorProps) {
+export function PageEditor({ page, onSave, onDelete, isDeleting }: PageEditorProps) {
   const [title, setTitle] = useState(page.title)
   const [mode, setMode] = useState<'read' | 'edit'>('read')
   const [dirty, setDirty] = useState(false)
@@ -247,12 +250,22 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
     setMode('edit')
   }
 
-  const uploadImage = async (file: File) => {
-    const formData = new FormData()
-    formData.append('image', file)
-    const response = await api.post('/pages/upload-image/', formData)
-    return response.data.url as string
-  }
+  const uploadImage = async (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result)
+          return
+        }
+
+        reject(new Error('Invalid image data'))
+      }
+
+      reader.onerror = () => reject(reader.error ?? new Error('Image read failed'))
+      reader.readAsDataURL(file)
+    })
 
   const handleImageSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -283,8 +296,8 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
   }, [clearPageShortcutActions, editor, page.id, registerPageShortcutActions])
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <span>{page.topic_name ?? 'Topic'}</span>
         <span>&gt;</span>
         <span className="text-foreground">{title || page.title}</span>
@@ -292,7 +305,7 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <input
-          className="min-w-0 flex-1 bg-transparent text-4xl font-bold outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-3xl font-bold outline-none placeholder:text-muted-foreground sm:text-4xl"
           onBlur={() => void saveTitle()}
           onChange={(event) => {
             setTitle(event.target.value)
@@ -343,6 +356,18 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
             {mode === 'edit' ? 'Done' : 'Edit'}
           </button>
 
+          {onDelete && (
+            <button
+              className="flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-50"
+              onClick={onDelete}
+              disabled={isDeleting}
+              type="button"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          )}
+
           <div className="relative">
             <button
               className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2 text-sm transition hover:bg-accent"
@@ -358,7 +383,7 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
                 <button
                   className="block w-full rounded-xl px-3 py-2 text-left text-sm transition hover:bg-accent"
                   onClick={() => {
-                    window.location.href = `http://localhost:8000/api/export/page/${page.id}/docx/`
+                    void exportPageAsDocx({ title: page.title, content_text: page.content_text })
                     setMenuOpen(false)
                   }}
                   type="button"
@@ -368,7 +393,7 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
                 <button
                   className="block w-full rounded-xl px-3 py-2 text-left text-sm transition hover:bg-accent"
                   onClick={() => {
-                    window.location.href = `http://localhost:8000/api/export/page/${page.id}/pdf/`
+                    exportPageAsPdf({ title: page.title, content_text: page.content_text })
                     setMenuOpen(false)
                   }}
                   type="button"
@@ -392,7 +417,7 @@ export function PageEditor({ page, onSave }: PageEditorProps) {
 
       <div className="rounded-[2rem] border border-border/70 bg-background/70 px-6 py-8 shadow-sm">
         <EditorContent
-          className="prose prose-slate max-w-none dark:prose-invert [&_.ProseMirror]:min-h-[420px] [&_.ProseMirror]:outline-none"
+          className="prose prose-slate max-w-none dark:prose-invert [&_.ProseMirror]:min-h-[420px] [&_.ProseMirror]:text-[1rem] [&_.ProseMirror]:leading-8 [&_.ProseMirror]:outline-none sm:[&_.ProseMirror]:text-[1.05rem]"
           editor={editor}
         />
       </div>

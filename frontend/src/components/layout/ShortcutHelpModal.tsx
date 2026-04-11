@@ -23,11 +23,11 @@ export function ShortcutHelpModal() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0"
       onClick={closeShortcutHelp}
     >
       <div
-        className="w-full max-w-2xl rounded-[2rem] border border-border/70 bg-background p-6 shadow-2xl"
+        className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-border/70 bg-background p-5 shadow-2xl sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">

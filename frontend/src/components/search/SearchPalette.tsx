@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
-import { api } from '../../api/client'
+import { searchPages } from '../../lib/db'
 import { useUIStore } from '../../store/uiStore'
 import { cn } from '../../utils/cn'
 import { useDebounce } from '../../utils/useDebounce'
@@ -22,7 +22,7 @@ type SemanticSearchResult = {
   page_title: string
   topic: string
   excerpt: string
-  score: number
+  score?: number
 }
 
 export function SearchPalette() {
@@ -39,25 +39,27 @@ export function SearchPalette() {
     }
   }, [searchOpen])
 
-  const textSearch = useQuery<{ results: TextSearchResult[] }>({
+  const textSearch = useQuery<TextSearchResult[]>({
     enabled: searchOpen && mode === 'text' && debouncedQuery.trim().length >= 2,
     queryKey: ['search', 'text', debouncedQuery],
-    queryFn: async () => {
-      const response = await api.get(`/search/?q=${encodeURIComponent(debouncedQuery)}`)
-      return response.data
-    },
+    queryFn: () => searchPages(debouncedQuery),
   })
 
-  const aiSearch = useMutation<{ results: SemanticSearchResult[] }, Error, string>({
+  const aiSearch = useMutation<SemanticSearchResult[], Error, string>({
     mutationFn: async (currentQuery) => {
-      const response = await api.post('/search/semantic/', { query: currentQuery })
-      return response.data
+      const results = await searchPages(currentQuery)
+      return results.map((result) => ({
+        page_id: result.page_id ?? result.id,
+        page_title: result.title,
+        topic: result.topic,
+        excerpt: result.excerpt,
+      }))
     },
   })
 
   const normalizedResults = useMemo(() => {
     if (mode === 'text') {
-      return (textSearch.data?.results ?? []).map((result) => ({
+      return (textSearch.data ?? []).map((result) => ({
         id: result.id,
         title: result.title,
         topic: result.topic,
@@ -66,14 +68,14 @@ export function SearchPalette() {
       }))
     }
 
-    return (aiSearch.data?.results ?? []).map((result) => ({
+    return (aiSearch.data ?? []).map((result) => ({
       id: result.page_id,
       title: result.page_title,
       topic: result.topic,
       excerpt: result.excerpt,
       score: result.score,
     }))
-  }, [aiSearch.data?.results, mode, textSearch.data?.results])
+  }, [aiSearch.data, mode, textSearch.data])
 
   const showTypeMessage = query.trim().length < 2
   const showEmptyState =
@@ -100,15 +102,15 @@ export function SearchPalette() {
       onClick={closeSearch}
     >
       <div
-        className="mx-auto mt-[15vh] w-full max-w-xl overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl"
+        className="mx-auto mt-[10vh] w-full max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-background shadow-2xl sm:mt-[15vh]"
         onClick={(event) => event.stopPropagation()}
       >
         <Command>
-          <div className="flex items-center gap-3 border-b border-border/70 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-4 py-3">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Command.Input
               autoFocus
-              className="flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
+              className="min-w-[12rem] flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && mode === 'ai') {
                   event.preventDefault()
@@ -142,7 +144,7 @@ export function SearchPalette() {
               </button>
             </div>
           </div>
-          <Command.List className="max-h-96 overflow-y-auto p-2">
+          <Command.List className="max-h-[65vh] overflow-y-auto p-2 sm:max-h-96">
             {aiSearch.isPending ? (
               <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-muted-foreground">
                 <LoaderCircle className="h-4 w-4 animate-spin" />

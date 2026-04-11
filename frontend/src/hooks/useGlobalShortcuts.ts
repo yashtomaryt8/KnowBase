@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { api } from '../api/client'
+import { getPage, getTopicTree } from '../lib/db'
 import { usePageShortcutStore } from '../store/pageShortcutStore'
 import { useUIStore } from '../store/uiStore'
 import type { Page } from '../types'
@@ -48,20 +48,14 @@ export function useGlobalShortcuts() {
 
   const { data: tree = [] } = useQuery<TreeTopic[]>({
     queryKey: ['topics', 'tree'],
-    queryFn: async () => {
-      const response = await api.get('/topics/tree/')
-      return response.data
-    },
+    queryFn: async () => (await getTopicTree()) as TreeTopic[],
     staleTime: 60_000,
   })
 
   const { data: currentPage } = useQuery<Page>({
     enabled: Boolean(pageId),
     queryKey: ['pages', pageId],
-    queryFn: async () => {
-      const response = await api.get(`/pages/${pageId}/`)
-      return response.data
-    },
+    queryFn: () => getPage(pageId!),
   })
 
   useEffect(() => {

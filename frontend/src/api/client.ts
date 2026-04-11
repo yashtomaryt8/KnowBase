@@ -1,8 +1,6 @@
-import axios from 'axios'
+import { createClient } from "@supabase/supabase-js"
 
-export const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
+const url = import.meta.env.VITE_SUPABASE_URL as string
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+export const supabase = createClient(url, key)

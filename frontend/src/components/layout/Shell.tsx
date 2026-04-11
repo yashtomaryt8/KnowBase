@@ -9,9 +9,9 @@ export function Shell() {
   useGlobalShortcuts()
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto pt-16 md:pt-0">
         <Outlet />
       </main>
       <SearchPalette />
