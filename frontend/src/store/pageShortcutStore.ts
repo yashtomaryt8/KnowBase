@@ -3,8 +3,8 @@ import { create } from 'zustand'
 export type PageShortcutActions = {
   isDirty: () => boolean
   isEditMode: () => boolean
-  save: () => Promise<void>
-  toggleMode: () => Promise<void>
+  save: () => void | Promise<void>
+  toggleMode: () => void | Promise<void>
 }
 
 type PageShortcutState = {

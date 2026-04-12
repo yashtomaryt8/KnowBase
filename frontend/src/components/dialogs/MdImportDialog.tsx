@@ -24,9 +24,7 @@ import {
   executeMdImport,
   parseMdFile,
   type ImportProgress,
-  type MdBullet,
   type MdImportPlan,
-  type MdSection,
 } from '../../lib/mdImport'
 import type { Topic } from '../../types'
 import { cn } from '../../utils/cn'

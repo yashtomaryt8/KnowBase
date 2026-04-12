@@ -32,13 +32,11 @@ import {
   Lightbulb,
   Plus,
   Sparkles,
-  Trash2,
   TrendingUp,
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
