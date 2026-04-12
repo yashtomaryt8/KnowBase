@@ -1,47 +1,50 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* ── CSS Custom Properties ────────────────────────────────────────────────────
-   Two families: --font-ui for all chrome/navigation, --font-reading for prose.
-   Lora gives that warm Medium-style editorial feel for long-form content.
-   DM Sans is clean and legible at small sizes for the UI shell.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   Lora for editorial reading (warm, Medium-like), DM Sans for UI chrome.
+   Safe-area variables drive the iPhone notch/home-bar layout compensation.
+   ══════════════════════════════════════════════════════════════════════════════ */
 :root {
-  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-ui:      'DM Sans', 'Segoe UI', system-ui, sans-serif;
   --font-reading: 'Lora', 'Georgia', serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Light theme — warm parchment feel */
-  --background: 40 30% 97%;
-  --foreground: 220 30% 12%;
-  --border: 30 15% 86%;
-  --accent: 30 50% 91%;
-  --muted: 38 22% 93%;
-  --muted-foreground: 220 10% 42%;
-  --sidebar-bg: 38 25% 94%;
-  --card: 0 0% 100%;
+  /* Light theme — warm parchment */
+  --background:        40 30% 97%;
+  --foreground:        220 30% 12%;
+  --border:            30 15% 86%;
+  --accent:            30 50% 91%;
+  --muted:             38 22% 93%;
+  --muted-foreground:  220 10% 42%;
+  --sidebar-bg:        38 25% 94%;
 
-  /* Reading-optimised metrics */
-  --reading-max-width: 72ch;
-  --reading-line-height: 1.85;
-  --reading-font-size: 1.0625rem;    /* ~17 px, ideal for long-form */
+  /* Reading metrics (Medium uses ~680px column, ~1.8 line-height, 18-19px) */
+  --reading-font-size:  1.0625rem;   /* 17px */
+  --reading-line-height: 1.875;
+  --reading-max-width:  720px;       /* tighter than 5xl, feels editorial */
 
-  /* iOS safe-area insets forwarded as CSS vars */
-  --safe-top: env(safe-area-inset-top);
-  --safe-bottom: env(safe-area-inset-bottom);
-  --safe-left: env(safe-area-inset-left);
-  --safe-right: env(safe-area-inset-right);
+  /* ── Mobile topbar safe-area compensation ──────────────────────────────────
+     --topbar-h is the visual height of our fixed mobile bar (icon 40px + py-3*2 = 24px ≈ 64px).
+     --main-top-offset is what we pad the scrollable main content by on mobile.
+     On desktop (md:) the sidebar is always visible; main gets no top padding.  */
+  --topbar-h: 3.75rem;              /* 60px – matches py-3 + 36px button */
+  --main-top-offset: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+  :root { --main-top-offset: 0px; }
 }
 
 .dark {
-  --background: 222 20% 9%;
-  --foreground: 38 28% 94%;
-  --border: 220 14% 20%;
-  --accent: 220 16% 16%;
-  --muted: 220 14% 14%;
+  --background:       222 20% 9%;
+  --foreground:       38 28% 94%;
+  --border:           220 14% 20%;
+  --accent:           220 16% 16%;
+  --muted:            220 14% 14%;
   --muted-foreground: 38 16% 64%;
-  --sidebar-bg: 222 22% 7%;
-  --card: 220 18% 11%;
+  --sidebar-bg:       222 22% 7%;
 }
 
 /* ── Tailwind theme tokens ────────────────────────────────────────────────── */
@@ -54,51 +57,47 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
 }
 
-/* ── Prose colour overrides ───────────────────────────────────────────────── */
+/* ── Prose tokens ─────────────────────────────────────────────────────────── */
 .prose {
-  --tw-prose-body:         hsl(var(--foreground));
-  --tw-prose-headings:     hsl(var(--foreground));
-  --tw-prose-lead:         hsl(var(--muted-foreground));
-  --tw-prose-links:        hsl(var(--foreground));
-  --tw-prose-bold:         hsl(var(--foreground));
-  --tw-prose-counters:     hsl(var(--muted-foreground));
-  --tw-prose-bullets:      hsl(var(--muted-foreground));
-  --tw-prose-hr:           hsl(var(--border));
-  --tw-prose-quotes:       hsl(var(--foreground));
+  --tw-prose-body:          hsl(var(--foreground));
+  --tw-prose-headings:      hsl(var(--foreground));
+  --tw-prose-lead:          hsl(var(--muted-foreground));
+  --tw-prose-links:         hsl(var(--foreground));
+  --tw-prose-bold:          hsl(var(--foreground));
+  --tw-prose-counters:      hsl(var(--muted-foreground));
+  --tw-prose-bullets:       hsl(var(--muted-foreground));
+  --tw-prose-hr:            hsl(var(--border));
+  --tw-prose-quotes:        hsl(var(--foreground));
   --tw-prose-quote-borders: hsl(var(--border));
-  --tw-prose-captions:     hsl(var(--muted-foreground));
-  --tw-prose-code:         hsl(var(--foreground));
-  --tw-prose-pre-code:     hsl(var(--foreground));
-  --tw-prose-pre-bg:       hsl(var(--muted));
-  --tw-prose-th-borders:   hsl(var(--border));
-  --tw-prose-td-borders:   hsl(var(--border));
+  --tw-prose-captions:      hsl(var(--muted-foreground));
+  --tw-prose-code:          hsl(var(--foreground));
+  --tw-prose-pre-code:      hsl(var(--foreground));
+  --tw-prose-pre-bg:        hsl(var(--muted));
+  --tw-prose-th-borders:    hsl(var(--border));
+  --tw-prose-td-borders:    hsl(var(--border));
 }
 
-/* ── Reset & base ─────────────────────────────────────────────────────────── */
-html, body, #root {
-  height: 100%;
-}
+/* ── Reset ────────────────────────────────────────────────────────────────── */
+html, body, #root { height: 100%; }
 
 html {
   font-size: 16px;
-  -webkit-text-size-adjust: 100%;   /* prevent iOS font inflation */
+  /* Prevent iOS from inflating text size in landscape */
+  -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
-/* Subtle radial glow + gradient base; light theme feels warm, dark is deep */
 body {
   background:
-    radial-gradient(
-      ellipse 80% 40% at 50% -10%,
-      color-mix(in oklab, hsl(var(--accent)) 35%, transparent),
-      transparent
-    ),
+    radial-gradient(ellipse 80% 35% at 50% -5%,
+      color-mix(in oklab, hsl(var(--accent)) 30%, transparent),
+      transparent),
     hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-ui);
   line-height: 1.5;
-  /* Padding for iOS home bar */
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Home-bar safe area so last content isn't clipped */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 *, *::before, *::after {
@@ -108,128 +107,140 @@ body {
 
 button:not(:disabled), [role='button'] { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
-
 code, kbd, pre { font-family: var(--font-mono); }
 
-/* ── Scrollbar (desktop only, subtle) ────────────────────────────────────── */
+/* ── Subtle scrollbar (pointer devices only) ──────────────────────────────── */
 @media (pointer: fine) {
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 99px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
-  }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
 }
 
-/* ── Focus ring ──────────────────────────────────────────────────────────── */
+/* ── Focus ring ───────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid hsl(var(--foreground) / 0.35);
+  outline: 2px solid hsl(var(--foreground) / 0.3);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* ── Sidebar shell ────────────────────────────────────────────────────────── */
-.sidebar-panel {
-  background: hsl(var(--sidebar-bg));
-  border-right: 1px solid hsl(var(--border));
-}
+/* ══════════════════════════════════════════════════════════════════════════════
+   TIPTAP / PROSEMIRROR — EDITORIAL READING STYLES
+   These override the default ProseMirror styles to create the warm, spacious
+   Medium-like reading experience. Every rule below is deliberate.
+   ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Reading content area ─────────────────────────────────────────────────── */
-.reading-area {
-  font-family: var(--font-reading);
-  font-size: var(--reading-font-size);
-  line-height: var(--reading-line-height);
-}
-
-/* TipTap editor: reading experience inside the content box */
+/* Base prose — reading font, comfortable metrics */
 .ProseMirror {
   font-family: var(--font-reading) !important;
   font-size: var(--reading-font-size) !important;
   line-height: var(--reading-line-height) !important;
-  min-height: 480px;
+  min-height: 520px;
   outline: none;
   color: hsl(var(--foreground));
+  /* Optical margin alignment for serif */
+  font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
 }
 
-/* Heading hierarchy — editorial sizing */
-.ProseMirror h1 { font-size: 2rem;   line-height: 1.25; font-weight: 700; margin: 1.5em 0 0.5em; font-family: var(--font-reading); }
-.ProseMirror h2 { font-size: 1.5rem; line-height: 1.3;  font-weight: 600; margin: 1.4em 0 0.5em; font-family: var(--font-reading); }
-.ProseMirror h3 { font-size: 1.25rem; line-height: 1.35; font-weight: 600; margin: 1.3em 0 0.4em; font-family: var(--font-reading); }
-.ProseMirror h4 { font-size: 1.1rem;  line-height: 1.4;  font-weight: 600; margin: 1.2em 0 0.4em; font-family: var(--font-reading); }
-.ProseMirror h5 { font-size: 1rem;    line-height: 1.4;  font-weight: 600; margin: 1em 0 0.35em; font-family: var(--font-reading); }
-.ProseMirror h6 { font-size: 0.9rem;  line-height: 1.4;  font-weight: 600; margin: 1em 0 0.35em; font-family: var(--font-reading); }
+/* ── Headings: clear editorial hierarchy ──────────────────────────────────── */
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3,
+.ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
+  font-family: var(--font-reading);
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.01em;
+}
+.ProseMirror h1 { font-size: 2rem;    line-height: 1.22; margin: 1.8em 0 0.55em; }
+.ProseMirror h2 { font-size: 1.5rem;  line-height: 1.3;  margin: 1.6em 0 0.5em; }
+.ProseMirror h3 { font-size: 1.25rem; line-height: 1.35; margin: 1.4em 0 0.45em; }
+.ProseMirror h4 { font-size: 1.1rem;  line-height: 1.4;  margin: 1.2em 0 0.4em;  font-weight: 600; }
+.ProseMirror h5 { font-size: 1rem;    line-height: 1.4;  margin: 1.1em 0 0.35em; font-weight: 600; }
+.ProseMirror h6 { font-size: 0.9rem;  line-height: 1.4;  margin: 1em   0 0.3em;  font-weight: 600; }
 
-/* Paragraph spacing */
-.ProseMirror p { margin: 0 0 0.9em; }
+/* ── Paragraphs ───────────────────────────────────────────────────────────── */
+.ProseMirror p          { margin: 0 0 0.95em; }
 .ProseMirror p:last-child { margin-bottom: 0; }
 
-/* Blockquote */
+/* ── Links ────────────────────────────────────────────────────────────────── */
+.ProseMirror a {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--muted-foreground) / 0.5);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.12s;
+}
+.ProseMirror a:hover { text-decoration-color: hsl(var(--foreground)); }
+
+/* ── Blockquote — Medium pull-quote style ─────────────────────────────────── */
 .ProseMirror blockquote {
-  border-left: 3px solid hsl(var(--border));
-  padding: 0.6em 0 0.6em 1.25em;
-  margin: 1em 0;
+  border-left: 3px solid hsl(var(--muted-foreground) / 0.4);
+  padding: 0.5em 0 0.5em 1.35em;
+  margin: 1.25em 0;
   color: hsl(var(--muted-foreground));
   font-style: italic;
 }
+.ProseMirror blockquote p { margin-bottom: 0; }
 
-/* Code blocks */
+/* ── Code ─────────────────────────────────────────────────────────────────── */
 .ProseMirror pre {
   background: hsl(var(--muted));
   border: 1px solid hsl(var(--border));
-  border-radius: 0.75rem;
-  padding: 1.1em 1.25em;
+  border-radius: 0.65rem;
+  padding: 1rem 1.2rem;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   font-family: var(--font-mono);
-  font-size: 0.88rem;
+  font-size: 0.875rem;
   line-height: 1.65;
-  margin: 1em 0;
+  margin: 1.2em 0;
+  /* On small screens, don't overflow the reading container */
+  max-width: 100%;
 }
 
 .ProseMirror code:not(pre code) {
   background: hsl(var(--accent));
   border: 1px solid hsl(var(--border));
-  border-radius: 0.35em;
-  padding: 0.1em 0.4em;
-  font-size: 0.85em;
+  border-radius: 0.3em;
+  padding: 0.1em 0.38em;
+  font-size: 0.84em;
   font-family: var(--font-mono);
 }
 
-/* ── Images: stay within content box, never overflow ─────────────────────── */
+/* ── Images — ALWAYS contained within the content box ────────────────────── */
 .ProseMirror img {
   max-width: 100%;
   height: auto;
-  border-radius: 0.75rem;
+  border-radius: 0.6rem;
   display: block;
-  margin: 1em auto;
-  /* Enforce containment — this is the key rule Yash asked for */
+  margin: 1.25em auto;
+  /* Hard cap so even a 4K image doesn't blow past the column */
+  max-height: 560px;
   object-fit: contain;
-  max-height: 600px;
+  /* Subtle shadow for definition */
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08),
+              0 4px 12px hsl(var(--foreground) / 0.04);
 }
 
-/* ── Tables: fully contained, scrollable on narrow screens ───────────────── */
-.ProseMirror table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1.25em 0;
-  font-size: 0.93rem;
-  /* Wrap in an overflowing div via the wrapper below */
-}
-
+/* ── Tables — contained + horizontally scrollable on narrow screens ────────── */
 .ProseMirror .tableWrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 0.75rem;
+  border-radius: 0.6rem;
   border: 1px solid hsl(var(--border));
-  margin: 1.25em 0;
+  margin: 1.35em 0;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  min-width: 400px; /* force scroll rather than squish */
 }
 
 .ProseMirror table th,
 .ProseMirror table td {
   border: 1px solid hsl(var(--border));
-  padding: 0.55em 0.9em;
+  padding: 0.55em 0.85em;
   text-align: left;
   vertical-align: top;
   min-width: 80px;
@@ -239,27 +250,25 @@ code, kbd, pre { font-family: var(--font-mono); }
   background: hsl(var(--muted));
   font-weight: 600;
   font-family: var(--font-ui);
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
+  font-size: 0.8rem;
+  letter-spacing: 0.025em;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
 }
 
-/* Selected cell highlight */
+.ProseMirror table tr:hover td { background: hsl(var(--accent) / 0.4); }
+
+/* Table selection handles */
 .ProseMirror .selectedCell::after {
-  background: hsl(var(--accent) / 0.6);
+  background: hsl(var(--accent) / 0.65);
   content: '';
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
   position: absolute;
   z-index: 2;
 }
-
 .ProseMirror .column-resize-handle {
-  background-color: hsl(var(--foreground) / 0.3);
+  background-color: hsl(var(--foreground) / 0.25);
   bottom: -2px;
   pointer-events: none;
   position: absolute;
@@ -269,92 +278,68 @@ code, kbd, pre { font-family: var(--font-mono); }
 }
 
 /* ── Task lists ───────────────────────────────────────────────────────────── */
-.ProseMirror ul[data-type='taskList'] {
-  padding: 0;
-  list-style: none;
-}
-
+.ProseMirror ul[data-type='taskList'] { padding: 0; list-style: none; }
 .ProseMirror ul[data-type='taskList'] li {
   display: flex;
   align-items: baseline;
-  gap: 0.55em;
-  margin: 0.35em 0;
+  gap: 0.6em;
+  margin: 0.3em 0;
 }
-
-.ProseMirror ul[data-type='taskList'] li > label {
-  flex-shrink: 0;
-  margin-top: 0.05em;
-}
-
+.ProseMirror ul[data-type='taskList'] li > label { flex-shrink: 0; }
 .ProseMirror ul[data-type='taskList'] li > div { flex: 1; }
-
 .ProseMirror ul[data-type='taskList'] input[type='checkbox'] {
   accent-color: hsl(var(--foreground));
-  width: 1em;
-  height: 1em;
-  cursor: pointer;
+  width: 1em; height: 1em; cursor: pointer;
+}
+
+/* ── Highlight ────────────────────────────────────────────────────────────── */
+.ProseMirror mark {
+  background: hsl(45 95% 68% / 0.42);
+  border-radius: 0.18em;
+  padding: 0.04em 0.1em;
+}
+.dark .ProseMirror mark { background: hsl(45 85% 50% / 0.22); }
+
+/* ── HR ───────────────────────────────────────────────────────────────────── */
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 2.2em 0;
 }
 
 /* ── Placeholder ──────────────────────────────────────────────────────────── */
 .ProseMirror p.is-empty::before {
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--muted-foreground) / 0.6);
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
+  font-style: italic;
 }
 
-/* ── Link styling in prose ────────────────────────────────────────────────── */
-.ProseMirror a {
-  color: hsl(var(--foreground));
-  text-decoration: underline;
-  text-decoration-color: hsl(var(--border));
-  text-underline-offset: 3px;
-  transition: text-decoration-color 0.15s;
-}
-.ProseMirror a:hover {
-  text-decoration-color: hsl(var(--foreground));
-}
+/* ── Text selection ───────────────────────────────────────────────────────── */
+.ProseMirror ::selection { background: hsl(var(--foreground) / 0.1); }
 
-/* ── Highlight (from Highlight extension) ─────────────────────────────────── */
-.ProseMirror mark {
-  background: hsl(45 95% 70% / 0.45);
-  border-radius: 0.2em;
-  padding: 0.05em 0.1em;
-}
-.dark .ProseMirror mark {
-  background: hsl(45 85% 50% / 0.25);
-}
+/* ── Lists ────────────────────────────────────────────────────────────────── */
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.6em; margin: 0.75em 0; }
+.ProseMirror li { margin: 0.3em 0; }
+.ProseMirror li p { margin: 0; }
 
-/* ── Horizontal rule ─────────────────────────────────────────────────────── */
-.ProseMirror hr {
-  border: none;
-  border-top: 1px solid hsl(var(--border));
-  margin: 2em 0;
-}
+/* ══════════════════════════════════════════════════════════════════════════════
+   UTILITY CLASSES — safe-area helpers used directly in JSX
+   ══════════════════════════════════════════════════════════════════════════════ */
+.safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
+.safe-right  { padding-right:  env(safe-area-inset-right,  0px); }
 
-/* ── Selection ───────────────────────────────────────────────────────────── */
-.ProseMirror ::selection {
-  background: hsl(var(--foreground) / 0.12);
-}
+/* The mobile top bar must start its content below the iOS status bar */
+.mobile-topbar { padding-top: env(safe-area-inset-top, 0px); }
 
-/* ── Drag cursor ─────────────────────────────────────────────────────────── */
-.ProseMirror[contenteditable='true'] { cursor: text; }
-
-/* ── Mobile/iPad safe-area utility ───────────────────────────────────────── */
-.pb-safe  { padding-bottom: env(safe-area-inset-bottom); }
-.pt-safe  { padding-top:    env(safe-area-inset-top);    }
-.pl-safe  { padding-left:   env(safe-area-inset-left);   }
-.pr-safe  { padding-right:  env(safe-area-inset-right);  }
-
-/* ── Smooth transitions everywhere ────────────────────────────────────────── */
-*, *::before, *::after {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow;
+/* Smooth transitions on theme/interaction changes — EXCLUDE transform & layout
+   to prevent jittery drag-and-drop animations */
+*:not([data-no-transition]) {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 120ms;
-}
-
-/* Exclude transition from transforms and layout props to avoid janky drags */
-[data-no-transition], [style*='transform'] {
-  transition: none !important;
+  transition-duration: 110ms;
 }

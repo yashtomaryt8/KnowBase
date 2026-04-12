@@ -99,8 +99,8 @@ export async function getTopicTree(): Promise<Topic[]> {
   const { data, error } = await supabase
     .from("topics")
     .select(TOPIC_SELECT)
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true })
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true })
 
   if (error) throw error
 
@@ -182,25 +182,38 @@ export async function createTopic(data: {
   color: string
   description: string
   parent_id?: string | null
+  sort_order?: number | null
 }): Promise<Topic> {
-  const payload = {
-    name: data.name,
-    slug: slugify(data.name, { lower: true, strict: true }),
-    icon: data.icon,
-    color: data.color,
-    description: data.description,
-    parent_id: data.parent_id ?? null,
+  const baseSlug = slugify(data.name, { lower: true, strict: true })
+
+  for (let attempt = 0; attempt <= 10; attempt++) {
+    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt}`
+    const payload: Record<string, unknown> = {
+      name:        data.name,
+      slug,
+      icon:        data.icon,
+      color:       data.color,
+      description: data.description,
+      parent_id:   data.parent_id ?? null,
+    }
+    if (data.sort_order !== undefined) payload.sort_order = data.sort_order
+
+    const { data: topicData, error } = await supabase
+      .from('topics')
+      .insert(payload)
+      .select(TOPIC_SELECT)
+      .single()
+
+    if (!error) return mapTopicRow(topicData as TopicRow)
+
+    // 23505 = unique_violation — the slug is taken, try next suffix
+    if (error.code === '23505') continue
+
+    // Any other DB / network error — surface it immediately
+    throw error
   }
 
-  const { data: topicData, error } = await supabase
-    .from("topics")
-    .insert(payload)
-    .select(TOPIC_SELECT)
-    .single()
-
-  if (error) throw error
-
-  return mapTopicRow(topicData as TopicRow)
+  throw new Error(`Could not create a unique slug for topic "${data.name}" after 10 attempts`)
 }
 
 export async function updateTopic(id: string, data: Partial<Topic>): Promise<Topic> {

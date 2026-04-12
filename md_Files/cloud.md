@@ -14,9 +14,7 @@
 
 ---
 
-## AWS — Amazon Web Services (Deep Dive)
-
-### AWS Core & Identity
+## AWS — Core & Identity
 
 - AWS Global Infrastructure (Regions · Availability Zones · Local Zones · Wavelength Zones · Edge Locations)
 - AWS IAM (Users · Groups · Roles · Policies · Inline vs Managed · SCP · Permission Boundaries · ABAC)
@@ -25,7 +23,9 @@
 - AWS VPC (Subnets · Route Tables · Internet Gateway · NAT Gateway · Peering · Transit Gateway · Endpoints)
 - VPC Advanced (Flow Logs · Security Groups · NACLs · Private Link · IPv6 · Egress-only IGW · DNS)
 
-### AWS Compute
+---
+
+## AWS — Compute
 
 - EC2 (Instance Types · AMIs · Placement Groups · Tenancy · User Data · Metadata · Nitro Hypervisor)
 - EC2 Purchasing (On-demand · Reserved · Savings Plans · Spot · Dedicated · Capacity Reservations)
@@ -36,7 +36,9 @@
 - AWS Batch (Managed Compute · Job Queues · Job Definitions · Arrays · Multi-node · Spot Integration)
 - AWS Elastic Beanstalk (Platform as a Service · Environments · Deployment Policies · Extensions · .ebextensions)
 
-### AWS Storage
+---
+
+## AWS — Storage
 
 - Amazon S3 (Buckets · Objects · Versioning · Lifecycle Policies · Replication · Presigned URLs · MFA Delete)
 - S3 Storage Classes (Standard · Intelligent-Tiering · Standard-IA · One Zone-IA · Glacier · Glacier Deep Archive)
@@ -46,7 +48,9 @@
 - Amazon EFS (Shared File System · Performance Modes · Throughput Modes · Access Points · Lifecycle · Cross-AZ)
 - AWS Storage Gateway (File · Volume · Tape · Hybrid · DataSync · Snow Family)
 
-### AWS Databases
+---
+
+## AWS — Databases
 
 - Amazon RDS (Engines: PostgreSQL · MySQL · MariaDB · Oracle · SQL Server · Multi-AZ · Read Replicas · Proxy)
 - Amazon Aurora (Serverless v2 · Global Database · Parallel Query · Backtrack · Cluster Cache · PostgreSQL/MySQL)
@@ -58,7 +62,9 @@
 - Amazon Keyspaces (Managed Cassandra · CQL · Tables · Capacity · Encryption · Point-in-time Recovery)
 - Amazon Timestream (Time-series · Ingestion · Query · Storage Tiers · Magnetic Store · Retention)
 
-### AWS Networking
+---
+
+## AWS — Networking
 
 - Route 53 (DNS Types · Routing Policies: Simple · Weighted · Latency · Failover · Geolocation · Multi-value · Health Checks)
 - CloudFront (CDN · Distributions · Origins · Behaviours · Cache Policies · WAF Integration · Lambda@Edge · Functions)
@@ -67,7 +73,9 @@
 - AWS Global Accelerator (Anycast · Static IPs · Traffic Dial · Health Checks · TCP/UDP)
 - VPC Endpoints (Gateway Endpoints · Interface Endpoints · Endpoint Services · Private DNS)
 
-### AWS Serverless
+---
+
+## AWS — Serverless
 
 - AWS Lambda Deep Dive (Execution Environment · Init Phase · SnapStart · Provisioned Concurrency · Extensions)
 - API Gateway (REST · HTTP · WebSocket · Stages · Throttling · Caching · Lambda Proxy · Custom Authorizer)
@@ -76,7 +84,9 @@
 - EventBridge (Event Bus · Rules · Targets · Schema Registry · Pipes · Archive · Replay · SaaS Integrations)
 - AWS SAM (Serverless Application Model · Template · Local Testing · Layers · Nested Apps · Deploying)
 
-### AWS Messaging
+---
+
+## AWS — Messaging
 
 - Amazon SQS (Standard · FIFO · Visibility Timeout · Dead Letter Queue · Long Polling · Extended Client)
 - Amazon SNS (Topics · Subscriptions · Fan-out · FIFO · Message Filtering · Cross-account · DLQ)
@@ -84,7 +94,9 @@
 - Amazon MSK (Managed Kafka · Brokers · Configurations · IAM Auth · Private Connectivity · Tiered Storage)
 - Amazon MQ (ActiveMQ · RabbitMQ · Managed Broker · Network of Brokers · Failover)
 
-### AWS Security
+---
+
+## AWS — Security
 
 - AWS KMS (CMKs · Key Policies · Key Rotation · Data Keys · Envelope Encryption · Multi-region Keys)
 - AWS Secrets Manager (Rotation · Lambda Rotation · Cross-account · SDK Integration · vs Parameter Store)
@@ -96,7 +108,9 @@
 - AWS Config (Resource Inventory · Config Rules · Remediation · Conformance Packs · Timeline)
 - AWS CloudTrail (API Logging · Data Events · Insights · Organisation Trail · Log File Validation)
 
-### AWS DevOps & Monitoring
+---
+
+## AWS — DevOps & Monitoring
 
 - Amazon CloudWatch (Metrics · Logs · Dashboards · Alarms · Anomaly Detection · Contributor Insights · EMF)
 - AWS X-Ray (Distributed Tracing · Service Map · Annotations · Metadata · Sampling · Groups · Insights)
@@ -106,7 +120,9 @@
 - AWS CloudFormation (Stacks · Nested Stacks · Change Sets · Drift Detection · Stacksets · CDK)
 - AWS CDK (L1/L2/L3 Constructs · App · Stack · Aspects · Context · Pipelines Construct · Testing)
 
-### AWS AI/ML Services
+---
+
+## AWS — AI/ML Services
 
 - Amazon SageMaker (Studio · Training Jobs · Endpoints · Pipelines · Feature Store · Ground Truth · Clarify)
 - Amazon Bedrock (Foundation Models · Claude · Titan · Llama · Knowledge Bases · Agents · Guardrails)
@@ -117,7 +133,9 @@
 - Amazon Polly (Text-to-Speech · Neural TTS · SSML · Lexicons · Streaming · Custom Pronunciations)
 - Amazon OpenSearch Service (Elasticsearch-compatible · k-NN · Dashboards · Ingestion · Serverless)
 
-### AWS Containers
+---
+
+## AWS — Containers
 
 - Amazon ECS (Clusters · Task Definitions · Services · Fargate · EC2 Launch Type · Service Connect)
 - Amazon EKS (Managed Control Plane · Node Groups · Fargate Profiles · Add-ons · IRSA · Blueprint)
