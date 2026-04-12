@@ -20,6 +20,7 @@ import {
   Menu,
   Moon,
   Plus,
+  RefreshCw,
   Search,
   Sun,
   Upload,
@@ -195,6 +196,15 @@ export function Sidebar() {
             <button aria-label="Search" className="rounded-xl border border-border/70 bg-background p-2.5 transition hover:bg-accent" onClick={handleOpenSearch} type="button">
               <Search className="h-4 w-4" />
             </button>
+            <button
+              aria-label="Hard refresh"
+              title="Hard refresh — fixes stale HMR state"
+              className="rounded-xl border border-border/70 bg-background p-2.5 transition hover:bg-accent"
+              onClick={() => window.location.reload()}
+              type="button"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
             <button aria-label="Toggle theme" className="rounded-xl border border-border/70 bg-background p-2.5 transition hover:bg-accent" onClick={toggleTheme} type="button">
               {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </button>
@@ -296,10 +306,22 @@ function SidebarContent({
           </button>
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Theme toggle visible in sidebar header on both desktop and mobile drawer */}
+          {/* Theme toggle */}
           <button aria-label="Toggle theme" className="rounded-xl p-2 transition hover:bg-accent" onClick={toggleTheme} type="button">
             {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </button>
+          {/* Hard refresh — desktop only */}
+          {!mobile ? (
+            <button
+              aria-label="Hard refresh"
+              title="Hard refresh — clears HMR stale state"
+              className="rounded-xl p-2 transition hover:bg-accent"
+              onClick={() => window.location.reload()}
+              type="button"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          ) : null}
           {/* Search icon in desktop sidebar */}
           {!mobile ? (
             <button aria-label="Search" className="rounded-xl p-2 transition hover:bg-accent" onClick={openSearch} type="button">

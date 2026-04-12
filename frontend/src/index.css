@@ -3,15 +3,13 @@
 
 /* ══════════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
-   Lora for editorial reading (warm, Medium-like), DM Sans for UI chrome.
-   Safe-area variables drive the iPhone notch/home-bar layout compensation.
    ══════════════════════════════════════════════════════════════════════════════ */
 :root {
-  --font-ui:      'DM Sans', 'Segoe UI', system-ui, sans-serif;
-  --font-reading: 'Lora', 'Georgia', serif;
-  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+  --font-ui:       'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-reading:  'Lora', 'Georgia', serif;
+  --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Light theme — warm parchment */
+  /* Light theme */
   --background:        40 30% 97%;
   --foreground:        220 30% 12%;
   --border:            30 15% 86%;
@@ -20,17 +18,19 @@
   --muted-foreground:  220 10% 42%;
   --sidebar-bg:        38 25% 94%;
 
-  /* Reading metrics (Medium uses ~680px column, ~1.8 line-height, 18-19px) */
-  --reading-font-size:  1.0625rem;   /* 17px */
+  /* Reading metrics (Medium-style) */
+  --reading-font-size:   1.0625rem;
   --reading-line-height: 1.875;
-  --reading-max-width:  720px;       /* tighter than 5xl, feels editorial */
 
-  /* ── Mobile topbar safe-area compensation ──────────────────────────────────
-     --topbar-h is the visual height of our fixed mobile bar (icon 40px + py-3*2 = 24px ≈ 64px).
-     --main-top-offset is what we pad the scrollable main content by on mobile.
-     On desktop (md:) the sidebar is always visible; main gets no top padding.  */
-  --topbar-h: 3.75rem;              /* 60px – matches py-3 + 36px button */
+  /* ── Mobile safe-area + topbar layout ─────────────────────────────────────
+     --main-top-offset is the padding applied to the <main> scroll container
+     on mobile so content starts below the fixed top bar.
+     On desktop this becomes 0px since the sidebar is always shown.         */
+  --topbar-h:        3.75rem;
   --main-top-offset: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+
+  /* Sticky toolbar height — used by JS to compute the outline top offset  */
+  --toolbar-h: 3rem;
 }
 
 @media (min-width: 768px) {
@@ -38,16 +38,15 @@
 }
 
 .dark {
-  --background:       222 20% 9%;
-  --foreground:       38 28% 94%;
-  --border:           220 14% 20%;
-  --accent:           220 16% 16%;
-  --muted:            220 14% 14%;
-  --muted-foreground: 38 16% 64%;
-  --sidebar-bg:       222 22% 7%;
+  --background:        222 20% 9%;
+  --foreground:        38 28% 94%;
+  --border:            220 14% 20%;
+  --accent:            220 16% 16%;
+  --muted:             220 14% 14%;
+  --muted-foreground:  38 16% 64%;
+  --sidebar-bg:        222 22% 7%;
 }
 
-/* ── Tailwind theme tokens ────────────────────────────────────────────────── */
 @theme inline {
   --color-background:       hsl(var(--background));
   --color-foreground:       hsl(var(--foreground));
@@ -57,7 +56,7 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
 }
 
-/* ── Prose tokens ─────────────────────────────────────────────────────────── */
+/* ── Prose colour overrides ──────────────────────────────────────────────── */
 .prose {
   --tw-prose-body:          hsl(var(--foreground));
   --tw-prose-headings:      hsl(var(--foreground));
@@ -77,12 +76,11 @@
   --tw-prose-td-borders:    hsl(var(--border));
 }
 
-/* ── Reset ────────────────────────────────────────────────────────────────── */
+/* ── Reset ───────────────────────────────────────────────────────────────── */
 html, body, #root { height: 100%; }
 
 html {
   font-size: 16px;
-  /* Prevent iOS from inflating text size in landscape */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -96,7 +94,6 @@ body {
   color: hsl(var(--foreground));
   font-family: var(--font-ui);
   line-height: 1.5;
-  /* Home-bar safe area so last content isn't clipped */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -109,7 +106,7 @@ button:not(:disabled), [role='button'] { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 code, kbd, pre { font-family: var(--font-mono); }
 
-/* ── Subtle scrollbar (pointer devices only) ──────────────────────────────── */
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
 @media (pointer: fine) {
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -117,7 +114,6 @@ code, kbd, pre { font-family: var(--font-mono); }
   ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
 }
 
-/* ── Focus ring ───────────────────────────────────────────────────────────── */
 :focus-visible {
   outline: 2px solid hsl(var(--foreground) / 0.3);
   outline-offset: 2px;
@@ -125,12 +121,52 @@ code, kbd, pre { font-family: var(--font-mono); }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   TIPTAP / PROSEMIRROR — EDITORIAL READING STYLES
-   These override the default ProseMirror styles to create the warm, spacious
-   Medium-like reading experience. Every rule below is deliberate.
+   STICKY PAGE HEADER
+   One container that includes:
+     Row 1 — controls bar (breadcrumb · Edit/Done · Save state · Export)
+     Row 2 — format toolbar (only visible in edit mode)
+   position:sticky + top:0 inside the <main> overflow-y:auto scroll container
+   makes the entire header stay pinned while only page content scrolls.
    ══════════════════════════════════════════════════════════════════════════════ */
+.page-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 25;                                 /* above everything else on the page */
+  background: hsl(var(--background) / 0.97);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid hsl(var(--border) / 0.7);
+  box-shadow: 0 2px 8px hsl(var(--foreground) / 0.06);
+}
 
-/* Base prose — reading font, comfortable metrics */
+/* Keep the old class for backwards compat (no longer used as a wrapper, but
+   editor-toolbar-inner is still referenced for horizontal scroll behaviour) */
+.editor-toolbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: hsl(var(--background) / 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid hsl(var(--border) / 0.7);
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.04);
+}
+
+/* Horizontally scrollable on mobile so all toolbar buttons are reachable */
+.editor-toolbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.editor-toolbar-inner::-webkit-scrollbar { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TIPTAP PROSE STYLES
+   ══════════════════════════════════════════════════════════════════════════════ */
 .ProseMirror {
   font-family: var(--font-reading) !important;
   font-size: var(--reading-font-size) !important;
@@ -138,17 +174,17 @@ code, kbd, pre { font-family: var(--font-mono); }
   min-height: 520px;
   outline: none;
   color: hsl(var(--foreground));
-  /* Optical margin alignment for serif */
-  font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
+  font-feature-settings: "kern" 1, "liga" 1;
 }
 
-/* ── Headings: clear editorial hierarchy ──────────────────────────────────── */
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3,
 .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
   font-family: var(--font-reading);
   font-weight: 700;
   color: hsl(var(--foreground));
   letter-spacing: -0.01em;
+  /* IDs for heading navigation */
+  scroll-margin-top: 5rem;
 }
 .ProseMirror h1 { font-size: 2rem;    line-height: 1.22; margin: 1.8em 0 0.55em; }
 .ProseMirror h2 { font-size: 1.5rem;  line-height: 1.3;  margin: 1.6em 0 0.5em; }
@@ -157,21 +193,17 @@ code, kbd, pre { font-family: var(--font-mono); }
 .ProseMirror h5 { font-size: 1rem;    line-height: 1.4;  margin: 1.1em 0 0.35em; font-weight: 600; }
 .ProseMirror h6 { font-size: 0.9rem;  line-height: 1.4;  margin: 1em   0 0.3em;  font-weight: 600; }
 
-/* ── Paragraphs ───────────────────────────────────────────────────────────── */
 .ProseMirror p          { margin: 0 0 0.95em; }
 .ProseMirror p:last-child { margin-bottom: 0; }
 
-/* ── Links ────────────────────────────────────────────────────────────────── */
 .ProseMirror a {
   color: hsl(var(--foreground));
   text-decoration: underline;
   text-decoration-color: hsl(var(--muted-foreground) / 0.5);
   text-underline-offset: 3px;
-  transition: text-decoration-color 0.12s;
 }
 .ProseMirror a:hover { text-decoration-color: hsl(var(--foreground)); }
 
-/* ── Blockquote — Medium pull-quote style ─────────────────────────────────── */
 .ProseMirror blockquote {
   border-left: 3px solid hsl(var(--muted-foreground) / 0.4);
   padding: 0.5em 0 0.5em 1.35em;
@@ -181,7 +213,6 @@ code, kbd, pre { font-family: var(--font-mono); }
 }
 .ProseMirror blockquote p { margin-bottom: 0; }
 
-/* ── Code ─────────────────────────────────────────────────────────────────── */
 .ProseMirror pre {
   background: hsl(var(--muted));
   border: 1px solid hsl(var(--border));
@@ -193,7 +224,6 @@ code, kbd, pre { font-family: var(--font-mono); }
   font-size: 0.875rem;
   line-height: 1.65;
   margin: 1.2em 0;
-  /* On small screens, don't overflow the reading container */
   max-width: 100%;
 }
 
@@ -206,22 +236,19 @@ code, kbd, pre { font-family: var(--font-mono); }
   font-family: var(--font-mono);
 }
 
-/* ── Images — ALWAYS contained within the content box ────────────────────── */
+/* ── Images — contained, never overflow ────────────────────────────────── */
 .ProseMirror img {
   max-width: 100%;
   height: auto;
   border-radius: 0.6rem;
   display: block;
   margin: 1.25em auto;
-  /* Hard cap so even a 4K image doesn't blow past the column */
   max-height: 560px;
   object-fit: contain;
-  /* Subtle shadow for definition */
-  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08),
-              0 4px 12px hsl(var(--foreground) / 0.04);
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08), 0 4px 12px hsl(var(--foreground) / 0.04);
 }
 
-/* ── Tables — contained + horizontally scrollable on narrow screens ────────── */
+/* ── Tables — scrollable on narrow screens, always contained ────────────── */
 .ProseMirror .tableWrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -234,7 +261,7 @@ code, kbd, pre { font-family: var(--font-mono); }
   border-collapse: collapse;
   width: 100%;
   font-size: 0.9rem;
-  min-width: 400px; /* force scroll rather than squish */
+  min-width: 400px;
 }
 
 .ProseMirror table th,
@@ -244,6 +271,12 @@ code, kbd, pre { font-family: var(--font-mono); }
   text-align: left;
   vertical-align: top;
   min-width: 80px;
+  /* cells are editable — give a visual cue on hover in edit mode */
+  transition: background 0.1s;
+}
+.ProseMirror[contenteditable="true"] table td:hover,
+.ProseMirror[contenteditable="true"] table th:hover {
+  background: hsl(var(--accent) / 0.5);
 }
 
 .ProseMirror table th {
@@ -256,9 +289,7 @@ code, kbd, pre { font-family: var(--font-mono); }
   color: hsl(var(--muted-foreground));
 }
 
-.ProseMirror table tr:hover td { background: hsl(var(--accent) / 0.4); }
-
-/* Table selection handles */
+/* Table resize handle */
 .ProseMirror .selectedCell::after {
   background: hsl(var(--accent) / 0.65);
   content: '';
@@ -275,9 +306,10 @@ code, kbd, pre { font-family: var(--font-mono); }
   right: -2px;
   top: 0;
   width: 3px;
+  cursor: col-resize;
 }
 
-/* ── Task lists ───────────────────────────────────────────────────────────── */
+/* ── Task lists ──────────────────────────────────────────────────────────── */
 .ProseMirror ul[data-type='taskList'] { padding: 0; list-style: none; }
 .ProseMirror ul[data-type='taskList'] li {
   display: flex;
@@ -292,7 +324,7 @@ code, kbd, pre { font-family: var(--font-mono); }
   width: 1em; height: 1em; cursor: pointer;
 }
 
-/* ── Highlight ────────────────────────────────────────────────────────────── */
+/* ── Highlight ───────────────────────────────────────────────────────────── */
 .ProseMirror mark {
   background: hsl(45 95% 68% / 0.42);
   border-radius: 0.18em;
@@ -300,14 +332,8 @@ code, kbd, pre { font-family: var(--font-mono); }
 }
 .dark .ProseMirror mark { background: hsl(45 85% 50% / 0.22); }
 
-/* ── HR ───────────────────────────────────────────────────────────────────── */
-.ProseMirror hr {
-  border: none;
-  border-top: 1px solid hsl(var(--border));
-  margin: 2.2em 0;
-}
+.ProseMirror hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 2.2em 0; }
 
-/* ── Placeholder ──────────────────────────────────────────────────────────── */
 .ProseMirror p.is-empty::before {
   color: hsl(var(--muted-foreground) / 0.6);
   content: attr(data-placeholder);
@@ -317,27 +343,102 @@ code, kbd, pre { font-family: var(--font-mono); }
   font-style: italic;
 }
 
-/* ── Text selection ───────────────────────────────────────────────────────── */
 .ProseMirror ::selection { background: hsl(var(--foreground) / 0.1); }
 
-/* ── Lists ────────────────────────────────────────────────────────────────── */
 .ProseMirror ul, .ProseMirror ol { padding-left: 1.6em; margin: 0.75em 0; }
 .ProseMirror li { margin: 0.3em 0; }
 .ProseMirror li p { margin: 0; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   UTILITY CLASSES — safe-area helpers used directly in JSX
+   DOCUMENT OUTLINE (heading navigator — Word Navigation Pane equivalent)
    ══════════════════════════════════════════════════════════════════════════════ */
-.safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-.safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
-.safe-right  { padding-right:  env(safe-area-inset-right,  0px); }
+.doc-outline {
+  /* Sticks relative to the nearest scroll ancestor (the <main> element).
+     top value accounts for the sticky toolbar height so it appears below it. */
+  position: sticky;
+  top: calc(var(--toolbar-h) + 1rem);
+  max-height: calc(100vh - var(--toolbar-h) - 8rem);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.doc-outline::-webkit-scrollbar { display: none; }
 
-/* The mobile top bar must start its content below the iOS status bar */
+.outline-item {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.35rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  display: block;
+  width: 100%;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outline-item:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
+.outline-item.active { background: hsl(var(--accent)); color: hsl(var(--foreground)); font-weight: 600; }
+.outline-item.h2 { padding-left: 1rem; }
+.outline-item.h3 { padding-left: 1.75rem; font-size: 0.72rem; }
+.outline-item.h4 { padding-left: 2.25rem; font-size: 0.7rem; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   DASHBOARD / HOMEPAGE SPECIFIC STYLES
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Mini calendar grid */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.cal-day:hover { background: hsl(var(--accent)); }
+.cal-day.today {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-weight: 700;
+}
+.cal-day.other-month { opacity: 0.3; }
+.cal-day.has-activity::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: hsl(var(--muted-foreground));
+}
+.cal-day { position: relative; }
+
+/* Checklist item animation */
+@keyframes strikethrough {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ══════════════════════════════════════════════════════════════════════════════ */
 .mobile-topbar { padding-top: env(safe-area-inset-top, 0px); }
+.safe-top      { padding-top:    env(safe-area-inset-top,    0px); }
+.safe-bottom   { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* Smooth transitions on theme/interaction changes — EXCLUDE transform & layout
-   to prevent jittery drag-and-drop animations */
 *:not([data-no-transition]) {
   transition-property: background-color, border-color, color, box-shadow, opacity;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);

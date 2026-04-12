@@ -9,7 +9,7 @@ export function Shell() {
   useGlobalShortcuts()
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-background text-foreground">
       <Sidebar />
 
       {/*
