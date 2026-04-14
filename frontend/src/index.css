@@ -389,11 +389,12 @@ code, kbd, pre { font-family: var(--font-mono); }
    DASHBOARD / HOMEPAGE SPECIFIC STYLES
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* Mini calendar grid */
+/* Mini calendar grid — responsive on all screen sizes */
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
+  width: 100%;
 }
 
 .cal-day {
@@ -402,9 +403,12 @@ code, kbd, pre { font-family: var(--font-mono); }
   align-items: center;
   justify-content: center;
   border-radius: 0.4rem;
-  font-size: 0.75rem;
+  /* clamp: never smaller than 10px, never bigger than 14px */
+  font-size: clamp(0.625rem, 1.8vw, 0.8rem);
   cursor: pointer;
   transition: background 0.1s;
+  min-width: 0;
+  min-height: 0;
 }
 .cal-day:hover { background: hsl(var(--accent)); }
 .cal-day.today {

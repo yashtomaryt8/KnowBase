@@ -127,8 +127,11 @@ export async function getTopicTree(): Promise<Topic[]> {
         const children = (parent.children ?? []) as Topic[]
         children.push(topic)
         parent.children = children
-        continue
       }
+      // If parent_id is set but parent doesn't exist (orphan / deleted parent),
+      // skip this topic entirely — do NOT push it to roots, which caused the
+      // "topics breaking out of their folder" visual bug.
+      continue
     }
 
     roots.push(topic)

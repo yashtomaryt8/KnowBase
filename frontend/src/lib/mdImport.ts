@@ -259,11 +259,11 @@ export async function executeMdImport(
 
   const { updatePage } = await import('./db')
 
-  // ── Steps 2…N: subtopics ───────────────────────────────────────────────
+  // ── Steps 2…N: subtopics (parallel bullets per section) ───────────────
   for (let si = 0; si < plan.sections.length; si++) {
     const section = plan.sections[si]
 
-    if (si > 0) await sleep(si % 5 === 0 ? 800 : 150)
+    if (si > 0) await sleep(si % 5 === 0 ? 600 : 80)
 
     progress(`Subtopic: "${section.title}"`)
     const subtopic = await withRetry(() => createTopic({
@@ -271,30 +271,37 @@ export async function executeMdImport(
       description: '', parent_id: rootTopic.id, sort_order: si,
     }))
 
-    // ── Sub-subtopics (bullets) ──────────────────────────────────────────
-    for (let bi = 0; bi < section.bullets.length; bi++) {
-      const bullet = section.bullets[bi]
+    // ── Bullets in parallel batches of 5 (much faster!) ─────────────────
+    const BATCH = 5
+    for (let bStart = 0; bStart < section.bullets.length; bStart += BATCH) {
+      const batch = section.bullets.slice(bStart, bStart + BATCH)
 
-      if (bi > 0 && bi % 8 === 0) await sleep(200)
+      await Promise.all(
+        batch.map(async (bullet, batchIdx) => {
+          const bi = bStart + batchIdx
+          progress(`  Sub-topic: "${bullet.title}"`)
 
-      progress(`  Sub-topic: "${bullet.title}"`)
-      const subsubtopic = await withRetry(() => createTopic({
-        name: bullet.title, icon: pickIcon(bi + 2), color: pickColor(bi + 1),
-        description: '', parent_id: subtopic.id, sort_order: bi,
-      }))
+          const subsubtopic = await withRetry(() => createTopic({
+            name: bullet.title, icon: pickIcon(bi + 2), color: pickColor(bi + 1),
+            description: '', parent_id: subtopic.id, sort_order: bi,
+          }))
 
-      // ONE page with ALL · items as a single bullet-list — nothing discarded
-      progress(`    Page: "${bullet.title}"`)
-      const json  = buildBulletPageJson(bullet.pages)   // all items → one bullet list
-      const text  = bullet.pages.join('\n')
-      const words = countWordsInJson(json)
+          progress(`    Page: "${bullet.title}"`)
+          const json  = buildBulletPageJson(bullet.pages)
+          const text  = bullet.pages.join('\n')
+          const words = countWordsInJson(json)
 
-      const page = await withRetry(() =>
-        createPage({ topic_id: subsubtopic.id, title: bullet.title }),
+          const page = await withRetry(() =>
+            createPage({ topic_id: subsubtopic.id, title: bullet.title }),
+          )
+          await withRetry(() =>
+            updatePage(page.id, { content_json: json, content_text: text, word_count: words }),
+          )
+        }),
       )
-      await withRetry(() =>
-        updatePage(page.id, { content_json: json, content_text: text, word_count: words }),
-      )
+
+      // Small pause between batches to respect the DB connection pool
+      if (bStart + BATCH < section.bullets.length) await sleep(60)
     }
   }
 

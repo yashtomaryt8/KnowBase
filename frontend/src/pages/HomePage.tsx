@@ -254,8 +254,10 @@ export function HomePage() {
         <div className="flex flex-col gap-6">
 
           {/* Mini Calendar */}
-          <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm">
-            <MiniCalendar />
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm overflow-hidden">
+            <div className="w-full min-w-0">
+              <MiniCalendar />
+            </div>
           </div>
 
           {/* Checklist / To-do widget */}
