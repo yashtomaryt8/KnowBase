@@ -150,20 +150,23 @@ export function HomePage() {
   const dateStr   = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+    <div className="mx-auto max-w-6xl px-4 pb-8 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:py-10">
 
       {/* ── 1. HEADER ──────────────────────────────────────────────────── */}
-      <div className="mb-8 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{dateStr}</p>
-          <h1 className="mt-1 text-3xl font-bold sm:text-4xl md:text-5xl" style={{ fontFamily: 'var(--font-reading)' }}>
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-muted-foreground sm:text-sm">{dateStr}</p>
+          <h1 className="mt-1 text-2xl font-bold sm:text-4xl md:text-5xl" style={{ fontFamily: 'var(--font-reading)' }}>
             {greeting}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+          <p className="mt-1 text-xs text-muted-foreground sm:mt-2 sm:text-base">
             Your personal knowledge base · {totalTopics} topics
           </p>
         </div>
-        <LiveClock />
+        {/* Clock: show on sm+ inline; on xs it sits below the greeting */}
+        <div className="self-start sm:self-auto">
+          <LiveClock />
+        </div>
       </div>
 
       {/* ── 2. STATS ROW ───────────────────────────────────────────────── */}
@@ -248,20 +251,19 @@ export function HomePage() {
         )}
       </div>
 
-      {/* ── 4. TWO-COLUMN DASHBOARD ────────────────────────────────────── */}
+      {/* ── 4. TWO-COLUMN DASHBOARD — stacks on mobile, side-by-side on lg+ ── */}
       <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
         {/* ── LEFT COLUMN: calendar + checklist ─────────────────────────── */}
         <div className="flex flex-col gap-6">
 
-          {/* Mini Calendar */}
-          <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm overflow-hidden">
-            <div className="w-full min-w-0">
-              <MiniCalendar />
-            </div>
+          {/* Mini Calendar — no overflow-hidden so Sa column never gets clipped */}
+          {/* container-type enables cqw units inside MiniCalendar */}
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-3 shadow-sm sm:p-5" style={{ containerType: 'inline-size' }}>
+            <MiniCalendar />
           </div>
 
-          {/* Checklist / To-do widget */}
-          <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm">
+          {/* Checklist */}
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-3 shadow-sm sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-base font-semibold">
                 <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
@@ -343,7 +345,7 @@ export function HomePage() {
         <div className="flex flex-col gap-6">
 
           {/* Recent pages */}
-          <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm">
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-3 shadow-sm sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-base font-semibold">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -365,23 +367,27 @@ export function HomePage() {
                 {recentPages.map((page) => (
                   <button
                     key={page.id}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-accent"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition hover:bg-accent"
                     onClick={() => navigate(`/page/${page.id}`)}
                     type="button"
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                       <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
+                    {/* min-w-0 is critical — lets flex child truncate properly */}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{page.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {page.topic_name ? <span className="mr-1.5">{page.topic_name}</span> : null}
+                      <p className="truncate text-xs text-muted-foreground">
+                        {page.topic_name ? <span className="mr-1">{page.topic_name}</span> : null}
                         <span className="opacity-60">·</span>
-                        <span className="ml-1.5">{formatRelativeTime(page.updated_at)}</span>
+                        <span className="ml-1">{formatRelativeTime(page.updated_at)}</span>
                       </p>
                     </div>
+                    {/* Word count: hidden on very small screens to prevent overflow */}
                     {page.word_count > 0 ? (
-                      <span className="shrink-0 text-xs text-muted-foreground">{page.word_count}w</span>
+                      <span className="hidden shrink-0 text-xs text-muted-foreground xs:inline sm:inline">
+                        {page.word_count}w
+                      </span>
                     ) : null}
                   </button>
                 ))}
@@ -391,7 +397,7 @@ export function HomePage() {
 
           {/* Topics quick access */}
           {tree.length > 0 ? (
-            <div className="rounded-2xl border border-border/70 bg-background/80 p-5 shadow-sm">
+          <div className="rounded-2xl border border-border/70 bg-background/80 p-3 shadow-sm sm:p-5">
               <h2 className="mb-4 flex items-center gap-2 text-base font-semibold">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 Topics
@@ -439,11 +445,11 @@ function LiveClock() {
   }, [])
 
   return (
-    <div className="flex flex-col items-end">
-      <span className="font-mono text-2xl font-bold sm:text-3xl tabular-nums">
+    <div className="flex flex-col items-start sm:items-end">
+      <span className="font-mono text-xl font-bold sm:text-3xl tabular-nums">
         {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
       </span>
-      <span className="text-xs text-muted-foreground">
+      <span className="text-[10px] text-muted-foreground sm:text-xs">
         {time.toLocaleTimeString('en-US', { second: '2-digit' }).slice(-2)}s
       </span>
     </div>
@@ -491,35 +497,33 @@ function MiniCalendar() {
     year === today.getFullYear()
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          {MONTHS[month]} {year}
+    // Use a block container that won't clip its children
+    <div className="w-full">
+      {/* Header: title left, nav right — shrink gracefully on small screens */}
+      <div className="mb-2 flex items-center justify-between gap-1">
+        <h2 className="flex min-w-0 shrink items-center gap-1.5 text-sm font-semibold sm:text-base">
+          <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">{MONTHS[month]} {year}</span>
         </h2>
-        <div className="flex gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           <button
-            className="rounded-lg p-1.5 transition hover:bg-accent"
+            className="rounded-lg p-1 transition hover:bg-accent"
             onClick={() => setView(new Date(year, month - 1, 1))}
-            type="button"
-            aria-label="Previous month"
+            type="button" aria-label="Previous month"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           <button
-            className="rounded-lg p-1.5 transition hover:bg-accent"
+            className="rounded-lg px-1.5 py-1 text-[10px] font-semibold transition hover:bg-accent"
             onClick={() => setView(new Date(today.getFullYear(), today.getMonth(), 1))}
-            type="button"
-            aria-label="Today"
+            type="button" aria-label="Today"
           >
-            <span className="text-[10px] font-semibold">Today</span>
+            Today
           </button>
           <button
-            className="rounded-lg p-1.5 transition hover:bg-accent"
+            className="rounded-lg p-1 transition hover:bg-accent"
             onClick={() => setView(new Date(year, month + 1, 1))}
-            type="button"
-            aria-label="Next month"
+            type="button" aria-label="Next month"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -527,9 +531,9 @@ function MiniCalendar() {
       </div>
 
       {/* Day-of-week headers */}
-      <div className="cal-grid mb-1">
+      <div className="cal-grid mb-0.5">
         {DAYS.map((d) => (
-          <div key={d} className="flex items-center justify-center py-1 text-[10px] font-semibold text-muted-foreground">
+          <div key={d} className="flex items-center justify-center py-0.5 text-[10px] font-semibold text-muted-foreground">
             {d}
           </div>
         ))}
@@ -541,7 +545,7 @@ function MiniCalendar() {
           <div
             key={i}
             className={cn(
-              'cal-day text-xs',
+              'cal-day',
               !cell.currentMonth && 'other-month',
               isToday(cell.day, cell.currentMonth) && 'today',
             )}

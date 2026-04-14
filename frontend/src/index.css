@@ -389,12 +389,15 @@ code, kbd, pre { font-family: var(--font-mono); }
    DASHBOARD / HOMEPAGE SPECIFIC STYLES
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* Mini calendar grid — responsive on all screen sizes */
+/* Mini calendar grid — fits any container width without clipping */
 .cal-grid {
   display: grid;
+  /* minmax(0, 1fr) lets columns shrink below their content size */
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
+  /* 1px gap saves 12px vs 2px across 7 columns — critical on 390px screens */
+  gap: 1px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .cal-day {
@@ -402,13 +405,15 @@ code, kbd, pre { font-family: var(--font-mono); }
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.4rem;
-  /* clamp: never smaller than 10px, never bigger than 14px */
-  font-size: clamp(0.625rem, 1.8vw, 0.8rem);
+  border-radius: 0.35rem;
+  /* Use container-relative sizing: min 9px, ideal, max 13px */
+  font-size: clamp(0.5625rem, 2.8cqw, 0.8125rem);
   cursor: pointer;
   transition: background 0.1s;
+  /* These prevent flex/grid children from overflowing their cells */
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
 .cal-day:hover { background: hsl(var(--accent)); }
 .cal-day.today {
@@ -428,7 +433,6 @@ code, kbd, pre { font-family: var(--font-mono); }
   border-radius: 50%;
   background: hsl(var(--muted-foreground));
 }
-.cal-day { position: relative; }
 
 /* Checklist item animation */
 @keyframes strikethrough {
