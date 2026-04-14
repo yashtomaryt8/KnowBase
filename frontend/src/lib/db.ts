@@ -7,6 +7,29 @@ const TOPIC_SELECT =
 const PAGE_SELECT =
   "id, topic_id, title, content_json, content_text, sort_order, is_pinned, word_count, created_at, updated_at"
 
+// ── Pagination helper ──────────────────────────────────────────────────────
+// Supabase/PostgREST silently caps every query at max-rows (default: 1000).
+// Without explicit pagination, tables > 1000 rows appear truncated in the
+// sidebar — the root cause of the "data loss" bug.
+// fetchAll() pages through ALL rows in chunks of PAGE_SIZE.
+
+const PAGE_SIZE = 500
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAll<T>(buildQuery: () => any): Promise<T[]> {
+  const results: T[] = []
+  let from = 0
+  for (;;) {
+    const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    const rows = (data ?? []) as T[]
+    results.push(...rows)
+    if (rows.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return results
+}
+
 type TopicRow = Pick<
   Topic,
   | "id"
@@ -96,41 +119,31 @@ function buildPageUpdatePayload(data: Partial<Page>) {
 }
 
 export async function getTopicTree(): Promise<Topic[]> {
-  const { data, error } = await supabase
-    .from("topics")
-    .select(TOPIC_SELECT)
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: true })
+  // fetchAll ensures we get every topic even if there are > 1000
+  const rows = await fetchAll<TopicRow>(() =>
+    supabase
+      .from("topics")
+      .select(TOPIC_SELECT)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true }),
+  )
 
-  if (error) throw error
-
-  const rows = (data ?? []) as TopicRow[]
   const topicMap = new Map<string, Topic>()
-
-  for (const row of rows) {
-    topicMap.set(row.id, mapTopicRow(row))
-  }
+  for (const row of rows) topicMap.set(row.id, mapTopicRow(row))
 
   const roots: Topic[] = []
-
   for (const row of rows) {
     const topic = topicMap.get(row.id)
-
-    if (!topic) {
-      continue
-    }
+    if (!topic) continue
 
     if (row.parent_id) {
       const parent = topicMap.get(row.parent_id)
-
       if (parent) {
         const children = (parent.children ?? []) as Topic[]
         children.push(topic)
         parent.children = children
       }
-      // If parent_id is set but parent doesn't exist (orphan / deleted parent),
-      // skip this topic entirely — do NOT push it to roots, which caused the
-      // "topics breaking out of their folder" visual bug.
+      // Orphan (parent deleted) — skip, do not promote to root
       continue
     }
 
@@ -255,16 +268,16 @@ export async function reorderTopics(parentId: string | null, orderedIds: string[
 }
 
 export async function getPagesByTopic(topicId: string): Promise<Page[]> {
-  const { data, error } = await supabase
-    .from("pages")
-    .select(PAGE_SELECT)
-    .eq("topic_id", topicId)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true })
-
-  if (error) throw error
-
-  return ((data ?? []) as PageRow[]).map((page) => ({ ...page }))
+  // fetchAll ensures all pages are returned even for topics with > 1000 pages
+  const rows = await fetchAll<PageRow>(() =>
+    supabase
+      .from("pages")
+      .select(PAGE_SELECT)
+      .eq("topic_id", topicId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+  )
+  return rows.map((page) => ({ ...page }))
 }
 
 export async function getPage(id: string): Promise<Page> {
@@ -340,22 +353,21 @@ export async function getRecentPages(limit = 6): Promise<Page[]> {
 }
 
 export async function searchPages(query: string): Promise<SearchResult[]> {
-  if (!query.trim()) {
-    return []
-  }
+  if (!query.trim()) return []
 
-  const { data, error } = await supabase
-    .from("pages")
-    .select("id, title, content_text, topic_id, topics(name)")
-    .or(`title.ilike.%${query}%,content_text.ilike.%${query}%`)
+  // fetchAll so search works across thousands of pages, not just the first 1000
+  const rows = await fetchAll<SearchRow>(() =>
+    supabase
+      .from("pages")
+      .select("id, title, content_text, topic_id, topics(name)")
+      .or(`title.ilike.%${query}%,content_text.ilike.%${query}%`),
+  )
 
-  if (error) throw error
-
-  return ((data ?? []) as SearchRow[]).map((row) => ({
-    id: row.id,
-    page_id: row.id,
-    title: row.title,
-    topic: getTopicName(row.topics),
-    excerpt: row.content_text.slice(0, 200),
+  return rows.map((row) => ({
+    id:       row.id,
+    page_id:  row.id,
+    title:    row.title,
+    topic:    getTopicName(row.topics),
+    excerpt:  row.content_text.slice(0, 200),
   }))
 }

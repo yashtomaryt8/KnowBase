@@ -1,4 +1,4 @@
-# 👁️ Computer Vision & Image Processing (CVIP)
+# Computer Vision & Image Processing (CVIP)
 
 ---
 

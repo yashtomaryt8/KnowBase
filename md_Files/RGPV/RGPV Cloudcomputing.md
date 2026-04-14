@@ -1,4 +1,4 @@
-# ☁️ Cloud Computing — CS802 (B)
+# Cloud Computing — CS802 (B)
 
 ---
 
