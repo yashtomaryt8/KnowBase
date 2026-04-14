@@ -28,6 +28,22 @@ import {
 } from 'docx'
 import { jsPDF } from 'jspdf'
 
+// ── Text sanitiser ─────────────────────────────────────────────────────────
+// Strips emoji and every non-BMP codepoint (U+10000+) that standard fonts
+// (Calibri, Arial, Helvetica) cannot render. Also normalises the › breadcrumb
+// separator to " > " which is ASCII-safe.
+function cleanText(s: string): string {
+  return s
+    // Remove emoji and supplementary-plane characters (\u{10000}–\u{10FFFF})
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    // Remove misc symbol ranges that cause mojibake
+    .replace(/[\u2600-\u27BF]/g, '')
+    // Replace hairline/fancy arrows with ASCII
+    .replace(/›/g, '>')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 // ── TipTap node types ──────────────────────────────────────────────────────
 
 interface TTMark { type: string; attrs?: Record<string, unknown> }
@@ -454,6 +470,8 @@ export type PageExportInput = {
   title: string
   content_json?: Record<string, unknown>
   content_text?: string
+  /** When set, a section heading is inserted before this page in topic exports */
+  groupLabel?: string
 }
 
 export type TopicExportInput = {
@@ -521,18 +539,36 @@ export async function exportTopicAsDocx({ topic, subtopics, pages }: TopicExport
   if (subtopics.length) {
     els.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Subtopics' })], spacing: { before: 160, after: 80 } }))
     for (const s of subtopics)
-      els.push(new Paragraph({ children: [new TextRun({ text: `• ${s.name}` })], indent: { left: 360 }, spacing: { after: 60 } }))
+      // cleanText strips emoji icons that Word cannot render in standard fonts
+      els.push(new Paragraph({ children: [new TextRun({ text: `• ${cleanText(s.name)}` })], indent: { left: 360 }, spacing: { after: 60 } }))
     els.push(dividerPara())
   }
 
   for (let i = 0; i < pages.length; i++) {
     const p = pages[i]
-    els.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: p.title })], pageBreakBefore: i > 0, spacing: { after: 200 } }))
+    if (p.groupLabel) {
+      // Clean the label — strip emoji so Word renders it correctly
+      const safeLabel = cleanText(p.groupLabel)
+      // Page break before every new section
+      els.push(new Paragraph({ pageBreakBefore: i > 0, children: [], spacing: { before: 0, after: 0 } }))
+      // Bold section label with a bottom border acting as a visual divider
+      els.push(new Paragraph({
+        children: [new TextRun({ text: safeLabel, bold: true, size: 22, color: '2C4A7C' })],
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '4A7FC1', space: 6 } },
+        spacing: { before: 120, after: 240 },
+      }))
+    }
+    els.push(new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: cleanText(p.title) })],
+      pageBreakBefore: !p.groupLabel && i > 0,
+      spacing: { after: 200 },
+    }))
     if (p.content_json) els.push(...tiptapToDocx(p.content_json))
     else if (p.content_text)
       for (const line of p.content_text.split('\n'))
         els.push(new Paragraph({ children: [new TextRun({ text: line || '' })], spacing: { after: 100 } }))
-    if (i < pages.length - 1) els.push(dividerPara('BBBBBB'))
+    if (i < pages.length - 1 && !pages[i + 1]?.groupLabel) els.push(dividerPara('BBBBBB'))
   }
 
   const blob = await Packer.toBlob(new Document({ creator: 'KnowBase', title: topic.name, sections: [{ children: els }] }))
@@ -551,11 +587,11 @@ export function exportTopicAsPdf({ topic, subtopics, pages }: TopicExportInput):
   const hr = () => { y += 8; pdf.setDrawColor(200, 202, 215); pdf.setLineWidth(0.5); pdf.line(margin.left, y, pageW - margin.right, y); y += 16 }
 
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(26); pdf.setTextColor(15, 18, 38)
-  pdf.text(topic.name, margin.left, y); y += 36
+  pdf.text(cleanText(topic.name), margin.left, y); y += 36
 
   if (topic.description) {
     pdf.setFont('helvetica', 'italic'); pdf.setFontSize(12); pdf.setTextColor(88, 90, 110)
-    const lines = pdf.splitTextToSize(topic.description, contentW) as string[]
+    const lines = pdf.splitTextToSize(cleanText(topic.description), contentW) as string[]
     for (const l of lines) { pdf.text(l, margin.left, y); y += 16 }
     y += 6
   }
@@ -565,21 +601,64 @@ export function exportTopicAsPdf({ topic, subtopics, pages }: TopicExportInput):
     pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.setTextColor(28, 30, 55)
     pdf.text('Subtopics', margin.left, y); y += 22
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11); pdf.setTextColor(52, 54, 75)
-    for (const s of subtopics) { pdf.text(`• ${s.name}`, margin.left + 14, y); y += 18 }
+    // cleanText strips emoji icon prefixes that helvetica can't render
+    for (const s of subtopics) { pdf.text(`• ${cleanText(s.name)}`, margin.left + 14, y); y += 18 }
     y += 4; hr()
   }
 
   for (let i = 0; i < pages.length; i++) {
     const p = pages[i]
-    if (i > 0) { pdf.addPage(); y = margin.top }
-    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(20); pdf.setTextColor(15, 18, 38)
-    pdf.text(p.title, margin.left, y); y += 28; hr()
+    const pageH = pdf.internal.pageSize.getHeight()
+
+    if (p.groupLabel) {
+      // New page for each section group
+      pdf.addPage(); y = margin.top
+
+      // Clean label: strip all emoji + non-ASCII that helvetica cannot render
+      const safeLabel = cleanText(p.groupLabel)
+
+      // Light blue banner rect
+      pdf.setFillColor(220, 234, 255)
+      const labelLines = pdf.splitTextToSize(safeLabel, contentW - 16) as string[]
+      const bannerH = labelLines.length * 16 + 16
+      pdf.roundedRect(margin.left - 4, y - 14, contentW + 8, bannerH, 4, 4, 'F')
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(12)
+      pdf.setTextColor(26, 42, 74)
+      for (const sl of labelLines) {
+        pdf.text(sl, margin.left + 4, y)
+        y += 16
+      }
+      y += 8
+      hr()
+    } else if (i > 0) {
+      pdf.addPage(); y = margin.top
+    }
+
+    // Page title — clean + wrap if long
+    const safeTitle = cleanText(p.title)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(20)
+    pdf.setTextColor(15, 18, 38)
+    const titleLines = pdf.splitTextToSize(safeTitle, contentW) as string[]
+    for (const tl of titleLines) {
+      if (y + 24 > pageH - margin.bottom) { pdf.addPage(); y = margin.top }
+      pdf.text(tl, margin.left, y)
+      y += 24
+    }
+    hr()
+
     if (p.content_json) {
       y = renderNodesToPdf(pdf, (p.content_json as unknown as TTNode).content ?? [], y, margin, contentW)
     } else if (p.content_text) {
       pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11); pdf.setTextColor(42, 44, 62)
       const lines = pdf.splitTextToSize(p.content_text, contentW) as string[]
-      for (const l of lines) { if (y + 16 > pdf.internal.pageSize.getHeight() - margin.bottom) { pdf.addPage(); y = margin.top } pdf.text(l, margin.left, y); y += 16 }
+      for (const l of lines) {
+        if (y + 16 > pageH - margin.bottom) { pdf.addPage(); y = margin.top }
+        pdf.text(l, margin.left, y)
+        y += 16
+      }
     }
   }
 

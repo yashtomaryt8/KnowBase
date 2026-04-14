@@ -8,9 +8,90 @@ import { toast } from 'sonner'
 
 import { AddTopicDialog } from '../components/dialogs/AddTopicDialog'
 import { exportTopicAsDocx, exportTopicAsPdf } from '../lib/exportPage'
-import { createPage, deleteTopic, getPagesByTopic, getTopic } from '../lib/db'
+import { createPage, deleteTopic, getPagesByTopic, getTopic, getTopicTree } from '../lib/db'
 import type { Page, Topic, TopicSummary } from '../types'
 import { TopicIcon } from '../utils/topicIcons'
+
+// ── Full-depth recursive page collector ────────────────────────────────────
+//
+// Strategy:
+//  1. Synchronously flatten the full in-memory subtree (from getTopicTree)
+//     into a list of { id, label } pairs using DFS — no network needed.
+//  2. Batch-fetch pages for all those topic IDs in groups of 10 at a time.
+//     This is controlled and won't overwhelm Supabase even with 300+ topics.
+
+interface PageGroup {
+  label: string  // full breadcrumb, e.g. "React › Hooks › useEffect"
+  pages: Page[]
+}
+
+interface SubtreeEntry {
+  id:    string
+  label: string
+}
+
+/** Find a node anywhere in the tree by ID (DFS) */
+function findSubtree(nodes: Topic[], id: string): Topic | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    const found = findSubtree((n.children ?? []) as Topic[], id)
+    if (found) return found
+  }
+  return null
+}
+
+/** Synchronous DFS — returns a flat ordered list of { id, label } */
+function flattenSubtree(node: Topic, breadcrumb: string[]): SubtreeEntry[] {
+  const label = breadcrumb.join(' › ')
+  const entries: SubtreeEntry[] = [{ id: node.id, label }]
+  for (const child of (node.children ?? []) as Topic[]) {
+    entries.push(...flattenSubtree(child, [...breadcrumb, child.name]))
+  }
+  return entries
+}
+
+/** Fetch pages for a batch of topic IDs concurrently */
+async function fetchBatch(entries: SubtreeEntry[]): Promise<PageGroup[]> {
+  const settled = await Promise.allSettled(
+    entries.map(async (e) => {
+      const pages = await getPagesByTopic(e.id)
+      return { label: e.label, pages }
+    }),
+  )
+  return settled
+    .filter(
+      (r): r is PromiseFulfilledResult<PageGroup> =>
+        r.status === 'fulfilled' && r.value.pages.length > 0,
+    )
+    .map((r) => r.value)
+}
+
+/**
+ * Collect ALL pages from the entire subtree rooted at `rootId`.
+ * Walks every depth level — parent → children → grandchildren → … → leaves.
+ * Pages are returned in DFS order, grouped by topic with full breadcrumb labels.
+ * Fetches are batched 10 at a time to stay within Supabase connection limits.
+ */
+async function collectDeepPages(rootId: string, rootName: string): Promise<PageGroup[]> {
+  const BATCH = 10
+
+  // Step 1: get full tree structure once (cheap — uses React Query cache)
+  const fullTree = await getTopicTree()
+  const rootNode = findSubtree(fullTree as Topic[], rootId)
+  if (!rootNode) return []
+
+  // Step 2: flatten entire subtree into ordered DFS list
+  const entries = flattenSubtree(rootNode, [rootName])
+
+  // Step 3: fetch pages in batches of BATCH
+  const results: PageGroup[] = []
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const batch = entries.slice(i, i + BATCH)
+    const groups = await fetchBatch(batch)
+    results.push(...groups)
+  }
+  return results
+}
 
 export function TopicView() {
   const { topicId } = useParams<{ topicId: string }>()
@@ -59,16 +140,31 @@ export function TopicView() {
     setIsExporting(true)
     setExportMenuOpen(false)
     try {
-      await exportTopicAsDocx({
-        topic: { name: topic.name, description: topic.description ?? undefined },
-        subtopics: ((topic.children ?? []) as TopicSummary[]).map((s) => ({ name: s.name })),
-        pages: orderedPages.map((p) => ({
-          title: p.title,
+      // Walk the FULL hierarchy recursively — every level, every leaf
+      const groups = await collectDeepPages(topic.id, topic.name)
+
+      // Flatten groups into the page list, inserting a groupLabel on the first
+      // page of each group so the exporter can emit section headings.
+      const allPages = groups.flatMap((g) =>
+        g.pages.map((p, i) => ({
+          title:        p.title,
           content_json: p.content_json as Record<string, unknown> | undefined,
           content_text: p.content_text,
+          groupLabel:   i === 0 ? g.label : undefined,
         })),
+      )
+
+      if (allPages.length === 0) {
+        toast.error('No pages found in this topic or any of its children')
+        return
+      }
+
+      await exportTopicAsDocx({
+        topic:     { name: topic.name, description: topic.description ?? undefined },
+        subtopics: subtopics.map((s) => ({ name: s.name })),
+        pages:     allPages,
       })
-      toast.success('Topic exported as DOCX')
+      toast.success(`Exported ${allPages.length} pages as DOCX`)
     } catch {
       toast.error('Export failed')
     } finally {
@@ -76,22 +172,37 @@ export function TopicView() {
     }
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     if (!topic) return
+    setIsExporting(true)
     setExportMenuOpen(false)
     try {
-      exportTopicAsPdf({
-        topic: { name: topic.name, description: topic.description ?? undefined },
-        subtopics: ((topic.children ?? []) as TopicSummary[]).map((s) => ({ name: s.name })),
-        pages: orderedPages.map((p) => ({
-          title: p.title,
+      const groups = await collectDeepPages(topic.id, topic.name)
+
+      const allPages = groups.flatMap((g) =>
+        g.pages.map((p, i) => ({
+          title:        p.title,
           content_json: p.content_json as Record<string, unknown> | undefined,
           content_text: p.content_text,
+          groupLabel:   i === 0 ? g.label : undefined,
         })),
+      )
+
+      if (allPages.length === 0) {
+        toast.error('No pages found in this topic or any of its children')
+        return
+      }
+
+      exportTopicAsPdf({
+        topic:     { name: topic.name, description: topic.description ?? undefined },
+        subtopics: subtopics.map((s) => ({ name: s.name })),
+        pages:     allPages,
       })
-      toast.success('Topic exported as PDF')
+      toast.success(`Exported ${allPages.length} pages as PDF`)
     } catch {
       toast.error('Export failed')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -185,9 +296,10 @@ export function TopicView() {
             {/* Export topic */}
             <div className="relative">
               <button
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-sm transition hover:bg-accent disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-sm transition hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => setExportMenuOpen((v) => !v)}
-                disabled={isExporting || orderedPages.length === 0}
+                disabled={isExporting || (orderedPages.length === 0 && subtopics.length === 0)}
+                title={orderedPages.length === 0 && subtopics.length === 0 ? 'Add pages or subtopics first' : undefined}
                 type="button"
               >
                 <Download className="h-4 w-4" />
@@ -199,8 +311,8 @@ export function TopicView() {
                   <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
                   <div className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-border bg-background p-2 shadow-2xl">
                     <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Export all {orderedPages.length} pages
-                    </div>
+                    Export {orderedPages.length + (subtopics.length > 0 ? ` + ${subtopics.length} subtopics` : '')} pages
+                  </div>
                     <button
                       className="block w-full rounded-xl px-3 py-2.5 text-left text-sm transition hover:bg-accent"
                       onClick={() => void handleExportDocx()}
@@ -210,7 +322,7 @@ export function TopicView() {
                     </button>
                     <button
                       className="block w-full rounded-xl px-3 py-2.5 text-left text-sm transition hover:bg-accent"
-                      onClick={handleExportPdf}
+                      onClick={() => void handleExportPdf()}
                       type="button"
                     >
                       📑 Download .pdf
